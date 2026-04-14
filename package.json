@@ -6,11 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.6.0",
+    "@types/pg": "^8.20.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
@@ -18,6 +21,7 @@
     "lucide-react": "^1.7.0",
     "next": "14.2.35",
     "next-auth": "^4.24.13",
+    "pg": "^8.20.0",
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^3.8.1",
