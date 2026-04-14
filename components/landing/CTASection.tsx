@@ -63,10 +63,10 @@ export default function CTASection() {
           className="mb-8"
         >
           <h2 className="font-montserrat leading-tight">
-            <span className="block font-bold text-epic-black dark:text-white text-[clamp(1.5rem,4vw,2.5rem)] tracking-widest uppercase">
+            <span className="block font-bold text-epic-black dark:text-white text-[clamp(1.5rem,4vw,2.5rem)] tracking-[0.05em] uppercase">
               ¿Listo para
             </span>
-            <span className="block font-light text-gray-500 dark:text-epic-silver text-[clamp(1.5rem,4vw,2.5rem)] tracking-widest uppercase">
+            <span className="block font-light text-gray-500 dark:text-epic-silver text-[clamp(1.5rem,4vw,2.5rem)] tracking-[0.05em] uppercase">
               el primer paso?
             </span>
           </h2>
@@ -97,7 +97,7 @@ export default function CTASection() {
             onHoverEnd={() => setBtnHovered(false)}
             whileTap={{ scale: 0.96 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-            className="group relative inline-flex items-center overflow-hidden font-montserrat font-bold text-sm tracking-[0.2em] px-10 py-5 uppercase"
+            className="group relative inline-flex items-center overflow-hidden font-montserrat font-bold text-sm tracking-[0.12em] px-10 py-5 uppercase"
           >
             {/* Fondo base */}
             <span className="absolute inset-0 bg-epic-black dark:bg-epic-gold" />

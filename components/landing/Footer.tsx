@@ -16,16 +16,16 @@ export default function Footer() {
 
         {/* Nombre */}
         <div>
-          <p className="font-montserrat font-extrabold text-lg tracking-[0.3em] text-white uppercase">
+          <p className="font-montserrat font-extrabold text-lg tracking-[0.12em] text-white uppercase">
             Epic Motion
           </p>
-          <p className="font-montserrat font-light text-xs tracking-[0.25em] text-epic-silver uppercase mt-1">
+          <p className="font-montserrat font-light text-xs tracking-[0.1em] text-epic-silver uppercase mt-1">
             High Performance Dance Studio
           </p>
         </div>
 
         {/* Slogan */}
-        <p className="font-montserrat font-light text-xs tracking-[0.2em] text-epic-gold uppercase">
+        <p className="font-montserrat font-light text-xs tracking-[0.1em] text-epic-gold uppercase">
           Consciente · Constante · Correcto
         </p>
 

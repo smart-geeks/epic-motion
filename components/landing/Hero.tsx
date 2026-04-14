@@ -137,7 +137,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: 'easeOut' }}
-          className="font-montserrat font-light text-[clamp(0.6rem,2.2vw,0.9rem)] tracking-[0.4em] text-epic-silver/80 mt-3 uppercase"
+          className="font-montserrat font-light text-[clamp(0.6rem,2.2vw,0.9rem)] tracking-[0.15em] text-epic-silver/80 mt-3 uppercase"
         >
           High Performance Dance Studio
         </motion.p>
@@ -155,7 +155,7 @@ export default function Hero() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.75 }}
-          className="font-montserrat font-light text-[clamp(0.7rem,1.8vw,0.9rem)] tracking-[0.25em] text-epic-silver/70"
+          className="font-montserrat font-light text-[clamp(0.7rem,1.8vw,0.9rem)] tracking-[0.12em] text-epic-silver/70"
         >
           Consciente · Constante · Correcto
         </motion.p>
@@ -171,7 +171,7 @@ export default function Hero() {
             href="https://wa.me/528712044277?text=Hola%20Epic%20Motion%2C%20quiero%20agendar%20una%20clase%20de%20prueba"
             target="_blank"
             rel="noopener noreferrer"
-            className="relative inline-flex items-center overflow-hidden font-montserrat font-bold text-xs tracking-[0.25em] px-8 py-4 uppercase"
+            className="relative inline-flex items-center overflow-hidden font-montserrat font-bold text-xs tracking-[0.12em] px-8 py-4 uppercase"
             onHoverStart={() => setBtnHovered(true)}
             onHoverEnd={() => setBtnHovered(false)}
             whileTap={{ scale: 0.95 }}

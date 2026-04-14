@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Montserrat, Inter } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const montserrat = Montserrat({
@@ -32,6 +33,7 @@ export default function RootLayout({
         className={`${montserrat.variable} ${inter.variable} font-inter antialiased bg-epic-black text-white`}
       >
         {children}
+        <Toaster position="bottom-center" richColors />
       </body>
     </html>
   );

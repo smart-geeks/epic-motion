@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, Sun, Moon, User } from 'lucide-react';
+import LoginModal from './LoginModal';
 
 const links = [
   { label: 'INICIO', href: '#inicio' },
@@ -17,6 +18,7 @@ export default function Navbar() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -41,6 +43,11 @@ export default function Navbar() {
   };
 
   const handleLinkClick = () => setMenuOpen(false);
+
+  const openLogin = () => {
+    setMenuOpen(false);
+    setLoginOpen(true);
+  };
 
   return (
     <>
@@ -68,7 +75,7 @@ export default function Navbar() {
               <a
                 key={link.label}
                 href={link.href}
-                className="font-montserrat text-xs font-bold tracking-widest text-gray-600 dark:text-epic-silver hover:text-epic-black dark:hover:text-epic-gold transition-colors duration-200"
+                className="font-montserrat text-xs font-bold tracking-[0.08em] text-gray-600 dark:text-epic-silver hover:text-epic-black dark:hover:text-epic-gold transition-colors duration-200"
               >
                 {link.label}
               </a>
@@ -85,14 +92,14 @@ export default function Navbar() {
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* Login: solo ícono en mobile, con texto en desktop */}
-            <a
-              href="/login"
+            {/* Login: abre modal */}
+            <button
+              onClick={openLogin}
               className="inline-flex items-center gap-2 font-montserrat text-xs font-bold tracking-wider px-3 md:px-4 py-2 border border-gray-300 dark:border-epic-gold text-gray-700 dark:text-epic-gold hover:bg-gray-100 dark:hover:bg-epic-gold dark:hover:text-epic-black transition-colors duration-200"
             >
               <User size={14} />
               <span className="hidden md:inline">Iniciar Sesión</span>
-            </a>
+            </button>
 
             {/* Hamburguesa mobile */}
             <button
@@ -122,23 +129,30 @@ export default function Navbar() {
                   key={link.label}
                   href={link.href}
                   onClick={handleLinkClick}
-                  className="font-montserrat text-sm font-bold tracking-widest text-gray-600 dark:text-epic-silver hover:text-epic-black dark:hover:text-epic-gold py-3 border-b border-gray-100 dark:border-white/5 transition-colors"
+                  className="font-montserrat text-sm font-bold tracking-[0.08em] text-gray-600 dark:text-epic-silver hover:text-epic-black dark:hover:text-epic-gold py-3 border-b border-gray-100 dark:border-white/5 transition-colors"
                 >
                   {link.label}
                 </a>
               ))}
-              <a
-                href="/login"
-                onClick={handleLinkClick}
-                className="mt-3 flex items-center justify-center gap-2 font-montserrat text-sm font-bold tracking-widest px-5 py-3 border border-gray-300 dark:border-epic-gold text-gray-700 dark:text-epic-gold hover:bg-gray-100 dark:hover:bg-epic-gold dark:hover:text-epic-black transition-colors"
+              <button
+                type="button"
+                onClick={openLogin}
+                className="mt-3 flex items-center justify-center gap-2 font-montserrat text-sm font-bold tracking-[0.08em] px-5 py-3 border border-gray-300 dark:border-epic-gold text-gray-700 dark:text-epic-gold hover:bg-gray-100 dark:hover:bg-epic-gold dark:hover:text-epic-black transition-colors"
               >
                 <User size={15} />
                 Iniciar Sesión
-              </a>
+              </button>
             </nav>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Modal de login */}
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        isDark={isDark}
+      />
     </>
   );
 }
