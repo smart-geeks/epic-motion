@@ -61,6 +61,22 @@ enum TipoPago {
   OTRO
 }
 
+enum TipoConcepto {
+  MENSUALIDAD
+  INSCRIPCION
+  UNIFORME
+  ENSAYO_SOLO
+  CLASE_PRIVADA
+  OTRO
+}
+
+enum EstadoCargo {
+  PENDIENTE
+  PAGADO
+  VENCIDO
+  CANCELADO
+}
+
 enum TipoEvento {
   RECITAL
   COMPETENCIA_INTERNA
@@ -92,7 +108,7 @@ enum EstadoClasePrivada {
 // ─────────────────────────────────────────────
 
 model Usuario {
-  id        String   @id @default(cuid())
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email     String   @unique
   password  String
   nombre    String
@@ -105,41 +121,43 @@ model Usuario {
   updatedAt DateTime @updatedAt
 
   // Relaciones
-  alumnas         Alumna[]         @relation("PadreAlumnas")
-  profesor        Profesor?
-  noticiasAutor   Noticia[]        @relation("AutorNoticias")
-  notificaciones  Notificacion[]
-  lecturasNoticias LecturaNoticia[] @relation("PadreLectura")
-  pagosComoPadre  Pago[]           @relation("PadrePagos")
-  sesionesComoProfesor Sesion[]    @relation("ProfesorSesiones")
-  clasesComoProfesors Clase[]      @relation("ProfesorClases")
-  notasComoMaestro Nota[]         @relation("MaestroNotas")
+  alumnas              Alumna[]         @relation("PadreAlumnas")
+  profesor             Profesor?
+  noticiasAutor        Noticia[]        @relation("AutorNoticias")
+  notificaciones       Notificacion[]
+  lecturasNoticias     LecturaNoticia[] @relation("PadreLectura")
+  pagosComoPadre       Pago[]           @relation("PadrePagos")
+  cargosComoPadre      Cargo[]          @relation("PadreCargos")
+  sesionesComoProfesor Sesion[]         @relation("ProfesorSesiones")
+  clasesComoProfesor   Clase[]          @relation("ProfesorClases")
+  notasComoMaestro     Nota[]           @relation("MaestroNotas")
 }
 
 model Alumna {
-  id              String        @id @default(cuid())
-  nombre          String
-  apellido        String
-  fechaNacimiento DateTime
-  foto            String?
-  estatus         EstatusAlumna @default(ACTIVA)
-  fechaInscripcion DateTime     @default(now())
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre           String
+  apellido         String
+  fechaNacimiento  DateTime
+  foto             String?
+  estatus          EstatusAlumna @default(ACTIVA)
+  fechaInscripcion DateTime      @default(now())
 
   // Relación con padre
-  padreId String
+  padreId String  @db.Uuid
   padre   Usuario @relation("PadreAlumnas", fields: [padreId], references: [id])
 
   // Relaciones
   clases         AlumnaClase[]
   asistencias    Asistencia[]
   pagos          Pago[]
+  cargos         Cargo[]
   notas          Nota[]
   logros         Logro[]
   clasesPrivadas ClasePrivada[]
 }
 
 model Salon {
-  id          String  @id @default(cuid())
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre      String
   descripcion String?
   capacidad   Int
@@ -149,7 +167,7 @@ model Salon {
 }
 
 model Clase {
-  id       String      @id @default(cuid())
+  id       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre   String
   estilo   EstiloClase
   nivel    String?
@@ -159,9 +177,9 @@ model Clase {
   cupo     Int
 
   // Relaciones con Salon y Profesor
-  salonId    String
+  salonId    String  @db.Uuid
   salon      Salon   @relation(fields: [salonId], references: [id])
-  profesorId String
+  profesorId String  @db.Uuid
   profesor   Usuario @relation("ProfesorClases", fields: [profesorId], references: [id])
 
   // Relaciones
@@ -171,28 +189,28 @@ model Clase {
 }
 
 model AlumnaClase {
-  id               String   @id @default(cuid())
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   fechaInscripcion DateTime @default(now())
 
-  alumnaId String
+  alumnaId String @db.Uuid
   alumna   Alumna @relation(fields: [alumnaId], references: [id])
-  claseId  String
+  claseId  String @db.Uuid
   clase    Clase  @relation(fields: [claseId], references: [id])
 
   @@unique([alumnaId, claseId])
 }
 
 model Sesion {
-  id         String       @id @default(cuid())
+  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   fecha      DateTime
   horaInicio DateTime
   horaFin    DateTime
   estado     EstadoSesion @default(PROGRAMADA)
   checkinAt  DateTime?
 
-  claseId    String
+  claseId    String  @db.Uuid
   clase      Clase   @relation(fields: [claseId], references: [id])
-  profesorId String
+  profesorId String  @db.Uuid
   profesor   Usuario @relation("ProfesorSesiones", fields: [profesorId], references: [id])
 
   // Relaciones
@@ -200,23 +218,23 @@ model Sesion {
 }
 
 model Asistencia {
-  id             String           @id @default(cuid())
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   estado         EstadoAsistencia
   uniforme       Boolean          @default(true)
   uniformeMotivo String[]         // zapato, tocado, tutu
   createdAt      DateTime         @default(now())
 
-  sesionId String
+  sesionId String @db.Uuid
   sesion   Sesion @relation(fields: [sesionId], references: [id])
-  alumnaId String
+  alumnaId String @db.Uuid
   alumna   Alumna @relation(fields: [alumnaId], references: [id])
 
   @@unique([sesionId, alumnaId])
 }
 
 model Pago {
-  id               String     @id @default(cuid())
-  importe          Float
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importe          Decimal  @db.Decimal(10, 2)
   concepto         String
   fechaVencimiento DateTime
   fechaPago        DateTime?
@@ -224,29 +242,30 @@ model Pago {
   comprobanteUrl   String?
   tipo             TipoPago
 
-  alumnaId String
+  alumnaId String  @db.Uuid
   alumna   Alumna  @relation(fields: [alumnaId], references: [id])
-  padreId  String
+  padreId  String  @db.Uuid
   padre    Usuario @relation("PadrePagos", fields: [padreId], references: [id])
 
   // Relaciones
   clasesPrivadas ClasePrivada[] @relation("PrepagoClasePrivada")
+  cargos         Cargo[]        @relation("CargoPago")
 }
 
 model Profesor {
-  id             String   @id @default(cuid())
-  tarifaHora     Float
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tarifaHora     Decimal  @db.Decimal(10, 2)
   especialidades String[]
 
-  usuarioId      String  @unique
-  usuario        Usuario @relation(fields: [usuarioId], references: [id])
+  usuarioId String  @unique @db.Uuid
+  usuario   Usuario @relation(fields: [usuarioId], references: [id])
 
   // Relaciones
   clasesPrivadas ClasePrivada[]
 }
 
 model Evento {
-  id          String     @id @default(cuid())
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tipo        TipoEvento
   titulo      String
   descripcion String?
@@ -260,23 +279,23 @@ model Evento {
 }
 
 model EventoGrupo {
-  eventoId String
+  eventoId String @db.Uuid
   evento   Evento @relation(fields: [eventoId], references: [id])
-  claseId  String
+  claseId  String @db.Uuid
   clase    Clase  @relation(fields: [claseId], references: [id])
 
   @@id([eventoId, claseId])
 }
 
 model Noticia {
-  id        String   @id @default(cuid())
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   titulo    String
   cuerpo    String
   imagenUrl String?
   fecha     DateTime @default(now())
   activa    Boolean  @default(true)
 
-  autorId String
+  autorId String  @db.Uuid
   autor   Usuario @relation("AutorNoticias", fields: [autorId], references: [id])
 
   // Relaciones
@@ -284,82 +303,145 @@ model Noticia {
 }
 
 model LecturaNoticia {
-  id           String   @id @default(cuid())
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   fechaLectura DateTime @default(now())
 
-  noticiaId String
+  noticiaId String  @db.Uuid
   noticia   Noticia @relation(fields: [noticiaId], references: [id])
-  padreId   String
+  padreId   String  @db.Uuid
   padre     Usuario @relation("PadreLectura", fields: [padreId], references: [id])
 
   @@unique([noticiaId, padreId])
 }
 
 model Nota {
-  id          String     @id @default(cuid())
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tipo        TipoNota
   contenido   String
   estado      EstadoNota @default(BORRADOR)
   fecha       DateTime   @default(now())
-  aprobadaPor String?
+  aprobadaPor String?    @db.Uuid // ID del admin que aprobó (ref. informal, sin FK)
 
-  alumnaId  String
+  alumnaId  String  @db.Uuid
   alumna    Alumna  @relation(fields: [alumnaId], references: [id])
-  maestroId String
+  maestroId String  @db.Uuid
   maestro   Usuario @relation("MaestroNotas", fields: [maestroId], references: [id])
 }
 
 model Logro {
-  id               String   @id @default(cuid())
-  tipo             String
-  nombre           String
-  descripcion      String
-  icono            String?
-  puntos           Int
-  fechaDesbloqueo  DateTime @default(now())
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo            String
+  nombre          String
+  descripcion     String
+  icono           String?
+  puntos          Int
+  fechaDesbloqueo DateTime @default(now())
 
-  alumnaId String
+  alumnaId String @db.Uuid
   alumna   Alumna @relation(fields: [alumnaId], references: [id])
 }
 
 model Notificacion {
-  id     String   @id @default(cuid())
+  id     String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tipo   String
   titulo String
   cuerpo String?
   leida  Boolean  @default(false)
   fecha  DateTime @default(now())
 
-  usuarioId String
+  usuarioId String  @db.Uuid
   usuario   Usuario @relation(fields: [usuarioId], references: [id])
 }
 
 model Paquete {
-  id               String   @id @default(cuid())
-  nombre           String
-  clasesPorSemana  Int
-  precio           Float
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre          String
+  clasesPorSemana Int
+  precio          Decimal  @db.Decimal(10, 2)
   estilosIncluidos String[]
-  activo           Boolean  @default(true)
+  activo          Boolean  @default(true)
 }
 
 model ClasePrivada {
-  id       String             @id @default(cuid())
+  id       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   fecha    DateTime
   hora     String
   duracion Int                @default(60)
   estado   EstadoClasePrivada @default(AGENDADA)
 
-  alumnaId   String
-  alumna     Alumna  @relation(fields: [alumnaId], references: [id])
-  profesorId String
+  alumnaId   String   @db.Uuid
+  alumna     Alumna   @relation(fields: [alumnaId], references: [id])
+  profesorId String   @db.Uuid
   profesor   Profesor @relation(fields: [profesorId], references: [id])
-  prepagoId  String?
-  prepago    Pago?   @relation("PrepagoClasePrivada", fields: [prepagoId], references: [id])
+  prepagoId  String?  @db.Uuid
+  prepago    Pago?    @relation("PrepagoClasePrivada", fields: [prepagoId], references: [id])
+}
+
+// ─────────────────────────────────────────────
+// Motor de Cobros
+// ─────────────────────────────────────────────
+
+// Catálogo de productos y servicios que ofrece la academia.
+// Define el precio base; el Cargo puede ajustarlo (descuentos, excepciones).
+model Concepto {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre      String
+  descripcion String?
+  tipo        TipoConcepto
+  precioSugerido Decimal     @db.Decimal(10, 2) // precio base sugerido
+  activo      Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+
+  // Relaciones
+  cargos Cargo[]
+}
+
+// Libro mayor de cuentas por cobrar.
+// Un Cargo nace PENDIENTE al inscribir a la alumna o al generar
+// la mensualidad del mes, y pasa a PAGADO cuando se registra el Pago.
+model Cargo {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // ── Lógica financiera ────────────────────────────────────────────────────────
+  // montoFinal = montoOriginal - descuento
+  // Se calculan y persisten al crear el Cargo para auditabilidad.
+  montoOriginal    Decimal     @db.Decimal(10, 2) // precio base del Concepto al momento de generar el cargo
+  descuento        Decimal     @db.Decimal(10, 2) @default(0) // monto a restar (0 = sin descuento)
+  montoFinal       Decimal     @db.Decimal(10, 2) // lo que el padre debe realmente pagar
+  motivoDescuento  String?     // ej. "familia numerosa", "beca parcial", "cortesía"
+  // ── Fechas ───────────────────────────────────────────────────────────────────
+  fechaVencimiento DateTime
+  fechaPago        DateTime?   // se rellena al marcar PAGADO
+  // ── Estado ───────────────────────────────────────────────────────────────────
+  estado           EstadoCargo @default(PENDIENTE)
+  notas            String?     // observaciones internas
+  // ── Notificaciones WhatsApp ──────────────────────────────────────────────────
+  // false → no enviada; true → ya enviada (manual o por n8n)
+  notificado3Dias  Boolean     @default(false) // recordatorio 3 días antes del vencimiento
+  notificadoHoy    Boolean     @default(false) // aviso el día del vencimiento
+  // ── Timestamps ───────────────────────────────────────────────────────────────
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Qué se está cobrando
+  conceptoId String   @db.Uuid
+  concepto   Concepto @relation(fields: [conceptoId], references: [id])
+
+  // A quién se le cobra
+  alumnaId String @db.Uuid
+  alumna   Alumna @relation(fields: [alumnaId], references: [id])
+
+  // Quién es el responsable de pago
+  padreId String  @db.Uuid
+  padre   Usuario @relation("PadreCargos", fields: [padreId], references: [id])
+
+  // Pago que liquidó este cargo (null = aún pendiente)
+  // Un Pago puede liquidar N Cargos (ej. mensualidad + uniforme en una sola transacción)
+  pagoId String? @db.Uuid
+  pago   Pago?   @relation("CargoPago", fields: [pagoId], references: [id])
 }
 
 model Configuracion {
-  id          String  @id @default(cuid())
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   clave       String  @unique
   valor       String
   descripcion String?
