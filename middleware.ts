@@ -32,7 +32,7 @@ const DASHBOARD_POR_ROL: Record<string, string> = {
 };
 
 const RUTAS_PROTEGIDAS: { prefijo: string; roles: string[] }[] = [
-  { prefijo: "/admin",   roles: ["ADMIN"] },
+  { prefijo: "/admin",   roles: ["ADMIN", "RECEPCIONISTA"] },
   { prefijo: "/maestro", roles: ["MAESTRO"] },
   { prefijo: "/padre",   roles: ["PADRE"] },
 ];

@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -12,7 +14,16 @@ interface LoginModalProps {
   isDark: boolean;
 }
 
+// Mapa de redirección por rol después del login
+const REDIRECT_BY_ROL: Record<string, string> = {
+  ADMIN: '/admin/dashboard',
+  MAESTRO: '/maestro/agenda',
+  PADRE: '/padre/home',
+  RECEPCIONISTA: '/admin/dashboard',
+};
+
 export default function LoginModal({ isOpen, onClose, isDark }: LoginModalProps) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,16 +42,34 @@ export default function LoginModal({ isOpen, onClose, isDark }: LoginModalProps)
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      toast('Próximamente', {
-        description: 'El acceso al panel estará disponible en el Mes 1.',
-        duration: 3500,
+
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false, // manejamos la redirección manualmente para poder mostrar errores
+    });
+
+    setLoading(false);
+
+    if (!result || result.error) {
+      toast.error('Credenciales incorrectas', {
+        description: 'Verifica tu correo y contraseña.',
       });
-    }, 800);
+      return;
+    }
+
+    // Obtener el rol del usuario recién autenticado para redirigir
+    // next-auth actualiza la sesión tras signIn exitoso
+    const { getSession } = await import('next-auth/react');
+    const session = await getSession();
+    const rol = (session?.user as { rol?: string })?.rol;
+    const destino = (rol && REDIRECT_BY_ROL[rol]) ?? '/admin/dashboard';
+
+    onClose();
+    router.push(destino);
   };
 
   return (

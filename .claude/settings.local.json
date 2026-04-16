@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p __TRACKED_VAR__/__TRACKED_VAR__)",
+      "Bash(curl -s https://raw.githubusercontent.com/greensock/gsap-skills/main/skills/__TRACKED_VAR__/SKILL.md -o __TRACKED_VAR__/__TRACKED_VAR__/SKILL.md)",
+      "Bash(npx tsx *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "n8n-mcp"
+  ]
+}

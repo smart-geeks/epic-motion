@@ -120,6 +120,13 @@ model Usuario {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Datos adicionales del tutor (capturados en el wizard)
+  telefonoTrabajo        String?
+  nombreConyuge          String?  // nombre del otro tutor
+  celularConyuge         String?
+  emailConyuge           String?
+  telefonoTrabajoConyuge String?
+
   // Relaciones
   alumnas              Alumna[]         @relation("PadreAlumnas")
   profesor             Profesor?
@@ -131,6 +138,7 @@ model Usuario {
   sesionesComoProfesor Sesion[]         @relation("ProfesorSesiones")
   clasesComoProfesor   Clase[]          @relation("ProfesorClases")
   notasComoMaestro     Nota[]           @relation("MaestroNotas")
+  gruposComoProfesor   Grupo[]          @relation("ProfesorGrupos")
 }
 
 model Alumna {
@@ -141,6 +149,15 @@ model Alumna {
   foto             String?
   estatus          EstatusAlumna @default(ACTIVA)
   fechaInscripcion DateTime      @default(now())
+
+  // Datos del expediente (capturados en el wizard de inscripción)
+  domicilio            String?
+  institucionEducativa String?
+  celular              String?
+  emailAlumna          String?
+  otraAcademia         String?  // nombre de academia anterior; null si ninguna
+  enfermedadLesion     String?  // descripción; null si ninguna
+  canalContacto        String?  // "WHATSAPP" | "EMAIL" | "TELEFONO"
 
   // Relación con padre
   padreId String  @db.Uuid
@@ -163,7 +180,74 @@ model Salon {
   capacidad   Int
 
   // Relaciones
-  clases Clase[]
+  clases  Clase[]
+  grupos  Grupo[]
+}
+
+// ─────────────────────────────────────────────
+// Módulo de Inscripciones — Catálogo comercial
+// ─────────────────────────────────────────────
+
+// Disciplina: Ballet, Hip-Hop, Tap, Jazz, Acro…
+model Disciplina {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre      String
+  descripcion String?
+  color       String?  // hex para badges en UI, ej. "#F8BBD0"
+  activo      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  grupos GrupoDisciplina[]
+}
+
+// Grupo: unidad comercial de inscripción (SENIOR FULL, TINY FULL, etc.)
+// En el futuro contendrá una FK a Clase para la operación diaria.
+model Grupo {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre          String
+  edadMin         Int
+  edadMax         Int
+  horasPorSemana  Decimal  @db.Decimal(4, 1)
+  dias            String[] // ["L","M","X","J","V","S","D"]
+  horaInicio      String   // "16:00"
+  duracionMinutos Int      // duración por sesión, configurable por el admin
+  cupo            Int
+  activo          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  salonId    String?  @db.Uuid
+  salon      Salon?   @relation(fields: [salonId], references: [id])
+  profesorId String?  @db.Uuid
+  profesor   Usuario? @relation("ProfesorGrupos", fields: [profesorId], references: [id])
+
+  disciplinas AlumnaClase[]     // alumnas inscritas en este grupo
+  tarifa      TarifaMensualidad?
+  disciplinasGrupo GrupoDisciplina[]
+}
+
+// Tabla pivot Grupo ↔ Disciplina
+model GrupoDisciplina {
+  grupoId      String     @db.Uuid
+  grupo        Grupo      @relation(fields: [grupoId], references: [id])
+  disciplinaId String     @db.Uuid
+  disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+
+  @@id([grupoId, disciplinaId])
+}
+
+// Tarifa editable por el admin: 1 tarifa por grupo
+model TarifaMensualidad {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  precioMensualidad Decimal  @db.Decimal(10, 2)
+  precioPreseason   Decimal  @db.Decimal(10, 2)
+  horasPorSemana    Decimal  @db.Decimal(4, 1) // referencia display
+  activo            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  grupoId String @unique @db.Uuid
+  grupo   Grupo  @relation(fields: [grupoId], references: [id])
 }
 
 model Clase {
@@ -192,10 +276,12 @@ model AlumnaClase {
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   fechaInscripcion DateTime @default(now())
 
-  alumnaId String @db.Uuid
-  alumna   Alumna @relation(fields: [alumnaId], references: [id])
-  claseId  String @db.Uuid
-  clase    Clase  @relation(fields: [claseId], references: [id])
+  alumnaId String  @db.Uuid
+  alumna   Alumna  @relation(fields: [alumnaId], references: [id])
+  claseId  String? @db.Uuid          // nullable hasta que el grupo tenga Clase asignada
+  clase    Clase?  @relation(fields: [claseId], references: [id])
+  grupoId  String? @db.Uuid          // grupo comercial de inscripción
+  grupo    Grupo?  @relation(fields: [grupoId], references: [id])
 
   @@unique([alumnaId, claseId])
 }
