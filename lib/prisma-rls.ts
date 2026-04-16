@@ -23,7 +23,7 @@
  *   );
  */
 
-import type { Prisma } from "@/app/generated/prisma/client";
+// El import de Prisma se mantiene para compatibilidad futura con tipos transaccionales
 import { prisma } from "@/lib/prisma";
 import type { Session } from "next-auth";
 

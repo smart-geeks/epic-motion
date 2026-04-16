@@ -2,207 +2,412 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { EstadoPago, TipoPago } from "@/app/generated/prisma/client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { withRLS } from "@/lib/prisma-rls";
+import bcrypt from "bcryptjs";
+import type { InscripcionAPIResponse } from "@/types/inscripciones";
+import { EstadoCargo, EstadoPago, TipoPago, TipoConcepto } from "@/app/generated/prisma/client";
 
-// ─────────────────────────────────────────────
-// Schema de validación (Zod)
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Validación Zod (UUIDs, no cuid — convención del proyecto)
+// ─────────────────────────────────────────────────────────────────────────────
 
-const InscripcionSchema = z.object({
-  // Si se pasa alumnaId, se actualiza la alumna existente; de lo contrario se crea una nueva.
-  alumnaId: z.cuid().optional(),
-
-  // Datos personales de la alumna
-  nombre: z.string().min(1, "El nombre es obligatorio").max(80),
-  apellido: z.string().min(1, "El apellido es obligatorio").max(80),
-  fechaNacimiento: z.coerce.date({ message: "La fecha de nacimiento es obligatoria" }),
-  foto: z.url().optional(),
-  estatus: z.enum(["ACTIVA", "INACTIVA", "PRUEBA"] as const).default("ACTIVA"),
-
-  // Vínculo con el padre (usuario con rol PADRE)
-  padreId: z.cuid({ message: "padreId inválido" }),
-
-  // Clases en las que se inscribe (al menos una)
-  claseIds: z
-    .array(z.cuid())
-    .min(1, "Debe seleccionarse al menos una clase"),
-
-  // Paquete que determina el importe del primer pago
-  paqueteId: z.cuid({ message: "paqueteId inválido" }),
-
-  // Fecha límite del primer pago
-  fechaVencimiento: z.coerce.date({ message: "La fecha de vencimiento es obligatoria" }),
-
-  // Descripción del cargo (ej. "Inscripción julio 2026")
-  concepto: z.string().max(200).default("Mensualidad de inscripción"),
+const DatosAlumnaSchema = z.object({
+  nombre: z.string().min(1).max(80),
+  apellido: z.string().min(1).max(80),
+  fechaNacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD"),
+  domicilio: z.string().max(200).default(""),
+  institucionEducativa: z.string().max(120).default(""),
+  celular: z.string().max(20).default(""),
+  emailAlumna: z.string().email().or(z.literal("")).default(""),
 });
 
-export type InscripcionInput = z.infer<typeof InscripcionSchema>;
+const DatosTutorSchema = z.object({
+  nombreMadre: z.string().max(100).default(""),
+  celularMadre: z.string().max(20).default(""),
+  emailMadre: z.string().email().or(z.literal("")).default(""),
+  telefonoTrabajoMadre: z.string().max(20).default(""),
+  nombrePadre: z.string().max(100).default(""),
+  celularPadre: z.string().max(20).default(""),
+  emailPadre: z.string().email().or(z.literal("")).default(""),
+  telefonoTrabajoPadre: z.string().max(20).default(""),
+});
 
-// ─────────────────────────────────────────────
-// Tipos de respuesta
-// ─────────────────────────────────────────────
+const DatosInfoGeneralSchema = z.object({
+  otraAcademia: z.boolean(),
+  nombreOtraAcademia: z.string().max(120).default(""),
+  tieneEnfermedad: z.boolean(),
+  descripcionEnfermedad: z.string().max(500).default(""),
+  canalContacto: z.enum(["WHATSAPP", "EMAIL", "TELEFONO"]),
+  aceptaTerminos: z.literal(true, {
+    error: "Debes aceptar los términos y condiciones",
+  }),
+});
 
-export type InscripcionResult =
-  | { ok: true; alumnaId: string; pagoId: string }
-  | { ok: false; error: string; campos?: Record<string, string[]> };
+const DatosPagoSchema = z.object({
+  metodoPago: z.enum(["EFECTIVO", "TRANSFERENCIA", "TARJETA"]),
+  referencia: z.string().max(100).default(""),
+  comprobanteUrl: z.string().url().nullable().default(null),
+});
 
-// ─────────────────────────────────────────────
-// Server Action principal
-// ─────────────────────────────────────────────
+const InscripcionSchema = z.object({
+  alumnaId: z.string().uuid().optional(), // presente solo en reinscripción
+  alumna: DatosAlumnaSchema,
+  tutor: DatosTutorSchema,
+  infoGeneral: DatosInfoGeneralSchema,
+  grupoId: z.string().uuid(),
+  pago: DatosPagoSchema,
+});
 
-export async function inscribirAlumna(
-  raw: unknown
-): Promise<InscripcionResult> {
-  // 1. Validar input con Zod
-  const parsed = InscripcionSchema.safeParse(raw);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Datos de inscripción inválidos",
-      campos: parsed.error.flatten().fieldErrors as Record<string, string[]>,
-    };
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilidades
+// ─────────────────────────────────────────────────────────────────────────────
+
+function generarPasswordTemporal(): string {
+  // Excluir caracteres ambiguos: 0, O, I, l
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  let pass = "";
+  for (let i = 0; i < 8; i++) {
+    pass += chars[Math.floor(Math.random() * chars.length)];
   }
-
-  const input = parsed.data;
-
-  // 2. Ejecutar en una sola transacción interactiva
-  try {
-    const resultado = await prisma.$transaction(async (tx) => {
-      // ── A. Verificar que el padre existe y tiene el rol correcto ──
-      const padre = await tx.usuario.findUnique({
-        where: { id: input.padreId },
-        select: { id: true, rol: true, activo: true },
-      });
-
-      if (!padre || !padre.activo) {
-        throw new InscripcionError("El padre no existe o su cuenta está inactiva");
-      }
-      if (padre.rol !== "PADRE") {
-        throw new InscripcionError("El usuario indicado no tiene el rol de PADRE");
-      }
-
-      // ── B. Obtener paquete y verificar que existe y está activo ──
-      const paquete = await tx.paquete.findUnique({
-        where: { id: input.paqueteId },
-        select: { id: true, nombre: true, precio: true, activo: true },
-      });
-
-      if (!paquete || !paquete.activo) {
-        throw new InscripcionError("El paquete seleccionado no existe o está inactivo");
-      }
-
-      // ── C. Verificar cupo en cada clase antes de inscribir ──
-      const clasesConCupo = await tx.clase.findMany({
-        where: { id: { in: input.claseIds } },
-        select: {
-          id: true,
-          nombre: true,
-          cupo: true,
-          _count: { select: { alumnas: true } },
-        },
-      });
-
-      // Validar que se encontraron todas las clases solicitadas
-      if (clasesConCupo.length !== input.claseIds.length) {
-        const encontrados = new Set(clasesConCupo.map((c) => c.id));
-        const faltantes = input.claseIds.filter((id) => !encontrados.has(id));
-        throw new InscripcionError(
-          `Las siguientes clases no existen: ${faltantes.join(", ")}`
-        );
-      }
-
-      // Validar cupo disponible en cada clase
-      const clasesSinCupo = clasesConCupo.filter(
-        (c) => c._count.alumnas >= c.cupo
-      );
-      if (clasesSinCupo.length > 0) {
-        const nombres = clasesSinCupo.map((c) => c.nombre).join(", ");
-        throw new InscripcionError(
-          `Sin cupo disponible en: ${nombres}`
-        );
-      }
-
-      // ── D. Crear o actualizar la Alumna ──
-      let alumna: { id: string };
-
-      if (input.alumnaId) {
-        // Actualizar alumna existente
-        alumna = await tx.alumna.update({
-          where: { id: input.alumnaId },
-          data: {
-            nombre: input.nombre,
-            apellido: input.apellido,
-            fechaNacimiento: input.fechaNacimiento,
-            foto: input.foto,
-            estatus: input.estatus,
-          },
-          select: { id: true },
-        });
-      } else {
-        // Crear nueva alumna
-        alumna = await tx.alumna.create({
-          data: {
-            nombre: input.nombre,
-            apellido: input.apellido,
-            fechaNacimiento: input.fechaNacimiento,
-            foto: input.foto,
-            estatus: input.estatus,
-            padreId: input.padreId,
-          },
-          select: { id: true },
-        });
-      }
-
-      // ── E. Vincular a clases (skipDuplicates respeta el @@unique) ──
-      await tx.alumnaClase.createMany({
-        data: input.claseIds.map((claseId) => ({
-          alumnaId: alumna.id,
-          claseId,
-        })),
-        skipDuplicates: true, // No falla si ya estaba inscrita en alguna clase
-      });
-
-      // ── F. Generar el primer pago (mensualidad de inscripción) ──
-      const pago = await tx.pago.create({
-        data: {
-          importe: paquete.precio,
-          concepto: input.concepto || `Inscripción — ${paquete.nombre}`,
-          fechaVencimiento: input.fechaVencimiento,
-          estado: EstadoPago.PENDIENTE,
-          tipo: TipoPago.INSCRIPCION,
-          alumnaId: alumna.id,
-          padreId: input.padreId,
-        },
-        select: { id: true },
-      });
-
-      return { alumnaId: alumna.id, pagoId: pago.id };
-    });
-
-    // 3. Invalidar caché de las páginas afectadas
-    revalidatePath("/admin/inscripciones");
-    revalidatePath("/admin/alumnas");
-
-    return { ok: true, ...resultado };
-  } catch (err) {
-    if (err instanceof InscripcionError) {
-      return { ok: false, error: err.message };
-    }
-    // Error inesperado — no exponer detalles al cliente
-    console.error("[inscribirAlumna]", err);
-    return { ok: false, error: "Error interno al procesar la inscripción" };
-  }
+  return pass;
 }
 
-// ─────────────────────────────────────────────
-// Error tipado para errores de negocio esperados
-// ─────────────────────────────────────────────
+function calcularFechaVencimientoMensualidad(diaCorte: number): Date {
+  const hoy = new Date();
+  let anio = hoy.getFullYear();
+  let mes = hoy.getMonth(); // 0-indexed
+
+  // Si el día de corte ya pasó este mes, ir al mes siguiente
+  if (diaCorte <= hoy.getDate()) {
+    mes += 1;
+    if (mes > 11) { mes = 0; anio += 1; }
+  }
+
+  return new Date(anio, mes, diaCorte);
+}
 
 class InscripcionError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "InscripcionError";
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server Action principal
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function inscribirAlumna(
+  raw: unknown
+): Promise<InscripcionAPIResponse> {
+  // 1. Validar sesión
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return { ok: false, error: "No autorizado" };
+  }
+  const rol = session.user?.rol;
+  if (rol !== "ADMIN" && rol !== "RECEPCIONISTA") {
+    return { ok: false, error: "Acceso denegado" };
+  }
+
+  // 2. Validar payload con Zod
+  const parsed = InscripcionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "Datos inválidos",
+      campos: parsed.error.flatten().fieldErrors as Record<string, string[]>,
+    };
+  }
+
+  const input = parsed.data;
+  const esReinscripcion = !!input.alumnaId;
+
+  // 3. Generar password temporal ANTES de la transacción (no en la BD)
+  const passwordTemporal = esReinscripcion ? "" : generarPasswordTemporal();
+
+  try {
+    const resultado = await withRLS(session, async (tx) => {
+      // ── A. Leer configuración ──────────────────────────────────────────────
+      const [cfgCuota, cfgCorte] = await Promise.all([
+        tx.configuracion.findUnique({ where: { clave: "cuota_inscripcion" } }),
+        tx.configuracion.findUnique({ where: { clave: "dia_corte_global" } }),
+      ]);
+
+      const cuotaInscripcion = cfgCuota ? parseFloat(cfgCuota.valor) : 0;
+      const diaCorte = cfgCorte ? parseInt(cfgCorte.valor, 10) : 1;
+
+      // ── B. Validar grupo y cupo ────────────────────────────────────────────
+      const grupo = await tx.grupo.findUnique({
+        where: { id: input.grupoId, activo: true },
+        include: {
+          tarifa: true,
+          _count: { select: { disciplinas: true } },
+        },
+      });
+
+      if (!grupo) throw new InscripcionError("Grupo no encontrado o inactivo");
+      if (grupo._count.disciplinas >= grupo.cupo) {
+        throw new InscripcionError(`El grupo "${grupo.nombre}" no tiene cupo disponible`);
+      }
+      if (!grupo.tarifa) {
+        throw new InscripcionError(`El grupo "${grupo.nombre}" no tiene tarifa configurada`);
+      }
+
+      const precioMensualidad = grupo.tarifa.precioMensualidad.toNumber();
+
+      // ── C. Obtener o crear Conceptos ───────────────────────────────────────
+      let conceptoInscripcion = await tx.concepto.findFirst({
+        where: { tipo: TipoConcepto.INSCRIPCION, activo: true },
+      });
+      if (!conceptoInscripcion) {
+        conceptoInscripcion = await tx.concepto.create({
+          data: {
+            nombre: "Cuota de Inscripción",
+            tipo: TipoConcepto.INSCRIPCION,
+            precioSugerido: cuotaInscripcion,
+          },
+        });
+      }
+
+      let conceptoMensualidad = await tx.concepto.findFirst({
+        where: { tipo: TipoConcepto.MENSUALIDAD, activo: true },
+      });
+      if (!conceptoMensualidad) {
+        conceptoMensualidad = await tx.concepto.create({
+          data: {
+            nombre: "Mensualidad",
+            tipo: TipoConcepto.MENSUALIDAD,
+            precioSugerido: precioMensualidad,
+          },
+        });
+      }
+
+      // ── D. Resolver padre e identidad de alumna ────────────────────────────
+      let padreId: string;
+      let alumnaId: string;
+      let emailPadre: string;
+
+      if (esReinscripcion) {
+        // Reinscripción: verificar alumna existente y reactivar
+        const alumnaExistente = await tx.alumna.findUnique({
+          where: { id: input.alumnaId },
+          include: { padre: true },
+        });
+        if (!alumnaExistente) throw new InscripcionError("Alumna no encontrada");
+
+        padreId = alumnaExistente.padreId;
+        alumnaId = alumnaExistente.id;
+        emailPadre = alumnaExistente.padre.email;
+
+        // Actualizar datos de alumna y reactivar
+        await tx.alumna.update({
+          where: { id: alumnaId },
+          data: {
+            nombre: input.alumna.nombre,
+            apellido: input.alumna.apellido,
+            fechaNacimiento: new Date(input.alumna.fechaNacimiento),
+            domicilio: input.alumna.domicilio || null,
+            institucionEducativa: input.alumna.institucionEducativa || null,
+            celular: input.alumna.celular || null,
+            emailAlumna: input.alumna.emailAlumna || null,
+            otraAcademia: input.infoGeneral.otraAcademia
+              ? input.infoGeneral.nombreOtraAcademia || null
+              : null,
+            enfermedadLesion: input.infoGeneral.tieneEnfermedad
+              ? input.infoGeneral.descripcionEnfermedad || null
+              : null,
+            canalContacto: input.infoGeneral.canalContacto,
+            estatus: "ACTIVA",
+            fechaInscripcion: new Date(),
+          },
+        });
+
+        // Actualizar datos del padre/tutor
+        const nombreMadre = input.tutor.nombreMadre;
+        const nombrePadre = input.tutor.nombrePadre;
+        const tutorPrincipal = nombreMadre || nombrePadre;
+        const partes = tutorPrincipal.split(" ");
+
+        await tx.usuario.update({
+          where: { id: padreId },
+          data: {
+            nombre: partes[0] || alumnaExistente.padre.nombre,
+            apellido: partes.slice(1).join(" ") || alumnaExistente.padre.apellido,
+            telefono: input.tutor.celularMadre || input.tutor.celularPadre || null,
+            telefonoTrabajo: input.tutor.telefonoTrabajoMadre || input.tutor.telefonoTrabajoPadre || null,
+            emailConyuge: nombreMadre ? input.tutor.emailPadre || null : input.tutor.emailMadre || null,
+            celularConyuge: nombreMadre ? input.tutor.celularPadre || null : input.tutor.celularMadre || null,
+            nombreConyuge: nombreMadre ? input.tutor.nombrePadre || null : input.tutor.nombreMadre || null,
+          },
+        });
+      } else {
+        // Nueva inscripción: crear padre + alumna
+        const passwordHash = await bcrypt.hash(passwordTemporal, 10);
+
+        const nombreMadre = input.tutor.nombreMadre;
+        const nombrePadre = input.tutor.nombrePadre;
+
+        // El email del padre: preferir email de la madre, luego padre, luego email de la alumna
+        emailPadre =
+          input.tutor.emailMadre ||
+          input.tutor.emailPadre ||
+          input.alumna.emailAlumna;
+
+        if (!emailPadre) {
+          throw new InscripcionError("Se requiere al menos un correo de contacto del tutor");
+        }
+
+        // Verificar que el email no esté en uso
+        const emailExistente = await tx.usuario.findUnique({
+          where: { email: emailPadre },
+        });
+        if (emailExistente) {
+          throw new InscripcionError(
+            `El correo ${emailPadre} ya está registrado. Si es reinscripción, usa la búsqueda.`
+          );
+        }
+
+        // Determinar nombre/apellido del tutor principal
+        const tutorNombre = nombreMadre || nombrePadre;
+        const partes = tutorNombre.split(" ");
+        const nombre = partes[0] || "Tutor";
+        const apellido = partes.slice(1).join(" ") || input.alumna.apellido;
+
+        const padre = await tx.usuario.create({
+          data: {
+            email: emailPadre,
+            password: passwordHash,
+            nombre,
+            apellido,
+            telefono: input.tutor.celularMadre || input.tutor.celularPadre || null,
+            telefonoTrabajo: input.tutor.telefonoTrabajoMadre || input.tutor.telefonoTrabajoPadre || null,
+            nombreConyuge: nombreMadre ? input.tutor.nombrePadre || null : input.tutor.nombreMadre || null,
+            celularConyuge: nombreMadre ? input.tutor.celularPadre || null : input.tutor.celularMadre || null,
+            emailConyuge: nombreMadre ? input.tutor.emailPadre || null : input.tutor.emailMadre || null,
+            telefonoTrabajoConyuge: nombreMadre
+              ? input.tutor.telefonoTrabajoPadre || null
+              : input.tutor.telefonoTrabajoMadre || null,
+            rol: "PADRE",
+            activo: true,
+          },
+        });
+
+        padreId = padre.id;
+
+        const alumna = await tx.alumna.create({
+          data: {
+            nombre: input.alumna.nombre,
+            apellido: input.alumna.apellido,
+            fechaNacimiento: new Date(input.alumna.fechaNacimiento),
+            domicilio: input.alumna.domicilio || null,
+            institucionEducativa: input.alumna.institucionEducativa || null,
+            celular: input.alumna.celular || null,
+            emailAlumna: input.alumna.emailAlumna || null,
+            otraAcademia: input.infoGeneral.otraAcademia
+              ? input.infoGeneral.nombreOtraAcademia || null
+              : null,
+            enfermedadLesion: input.infoGeneral.tieneEnfermedad
+              ? input.infoGeneral.descripcionEnfermedad || null
+              : null,
+            canalContacto: input.infoGeneral.canalContacto,
+            estatus: "ACTIVA",
+            padreId,
+          },
+        });
+
+        alumnaId = alumna.id;
+      }
+
+      // ── E. Vincular alumna al grupo (AlumnaClase) ──────────────────────────
+      await tx.alumnaClase.create({
+        data: {
+          alumnaId,
+          grupoId: input.grupoId,
+          // claseId queda null hasta que el grupo tenga Clase operativa asignada
+        },
+      });
+
+      // ── F. Calcular fechas de vencimiento ──────────────────────────────────
+      const hoy = new Date();
+      const fechaVencimientoMensualidad = calcularFechaVencimientoMensualidad(diaCorte);
+
+      // ── G. Determinar estados según método de pago ─────────────────────────
+      // Transferencia queda PENDIENTE hasta confirmación; efectivo y tarjeta = PAGADO
+      const esPagadoInmediato = input.pago.metodoPago !== "TRANSFERENCIA";
+      const estadoCargo = esPagadoInmediato ? EstadoCargo.PAGADO : EstadoCargo.PENDIENTE;
+      const estadoPago = esPagadoInmediato ? EstadoPago.PAGADO : EstadoPago.PENDIENTE;
+      const fechaPago = esPagadoInmediato ? hoy : null;
+
+      // ── H. Crear el registro de Pago ───────────────────────────────────────
+      const importeTotal = cuotaInscripcion + precioMensualidad;
+
+      const pago = await tx.pago.create({
+        data: {
+          importe: importeTotal,
+          concepto: `Inscripción ${grupo.nombre} — ${input.alumna.nombre} ${input.alumna.apellido}`,
+          fechaVencimiento: hoy,
+          fechaPago,
+          estado: estadoPago,
+          tipo: TipoPago.INSCRIPCION,
+          comprobanteUrl: input.pago.comprobanteUrl,
+          alumnaId,
+          padreId,
+        },
+      });
+
+      // ── I. Crear Cargos y vincularlos al Pago ─────────────────────────────
+      await tx.cargo.createMany({
+        data: [
+          {
+            montoOriginal: cuotaInscripcion,
+            descuento: 0,
+            montoFinal: cuotaInscripcion,
+            fechaVencimiento: hoy,
+            fechaPago,
+            estado: estadoCargo,
+            notas: `Cuota inscripción — método: ${input.pago.metodoPago}`,
+            conceptoId: conceptoInscripcion.id,
+            alumnaId,
+            padreId,
+            pagoId: pago.id,
+          },
+          {
+            montoOriginal: precioMensualidad,
+            descuento: 0,
+            montoFinal: precioMensualidad,
+            fechaVencimiento: fechaVencimientoMensualidad,
+            fechaPago,
+            estado: estadoCargo,
+            notas: `Mensualidad ${grupo.nombre} — método: ${input.pago.metodoPago}`,
+            conceptoId: conceptoMensualidad.id,
+            alumnaId,
+            padreId,
+            pagoId: pago.id,
+          },
+        ],
+      });
+
+      return { alumnaId, padreId, emailPadre };
+    });
+
+    revalidatePath("/admin/inscripciones");
+    revalidatePath("/admin/alumnas");
+
+    return {
+      ok: true,
+      alumnaId: resultado.alumnaId,
+      padreId: resultado.padreId,
+      emailPadre: resultado.emailPadre,
+      passwordTemporal,
+    };
+  } catch (err) {
+    if (err instanceof InscripcionError) {
+      return { ok: false, error: err.message };
+    }
+    console.error("[inscribirAlumna]", err);
+    return { ok: false, error: "Error interno al procesar la inscripción" };
   }
 }

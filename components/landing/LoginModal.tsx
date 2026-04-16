@@ -65,7 +65,7 @@ export default function LoginModal({ isOpen, onClose, isDark }: LoginModalProps)
     // next-auth actualiza la sesión tras signIn exitoso
     const { getSession } = await import('next-auth/react');
     const session = await getSession();
-    const rol = (session?.user as any)?.rol as string | undefined;
+    const rol = (session?.user as { rol?: string })?.rol;
     const destino = (rol && REDIRECT_BY_ROL[rol]) ?? '/admin/dashboard';
 
     onClose();

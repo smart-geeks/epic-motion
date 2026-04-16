@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { PrismaClient, Rol, EstatusAlumna, EstiloClase } from "../app/generated/prisma/client";
+// Nota: Disciplina, Grupo, GrupoDisciplina y TarifaMensualidad se agregan al final del seed
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
@@ -380,7 +381,168 @@ async function main() {
     });
   }
 
+  // Agregar cuota_inscripcion
+  await prisma.configuracion.upsert({
+    where:  { clave: "cuota_inscripcion" },
+    update: {},
+    create: {
+      clave:       "cuota_inscripcion",
+      valor:       "500",
+      descripcion: "Cuota única de inscripción por alumna (nuevo ingreso)",
+    },
+  });
+
   console.log("✅ Configuración creada");
+
+  // ─────────────────────────────────────────────
+  // Disciplinas (findOrCreate por nombre)
+  // ─────────────────────────────────────────────
+
+  const disciplinasBallet = await findOrCreate(
+    () => prisma.disciplina.findFirst({ where: { nombre: "Ballet" } }),
+    () => prisma.disciplina.create({ data: { nombre: "Ballet", color: "#F8BBD0" } })
+  );
+  const disciplinaHipHop = await findOrCreate(
+    () => prisma.disciplina.findFirst({ where: { nombre: "Hip-Hop" } }),
+    () => prisma.disciplina.create({ data: { nombre: "Hip-Hop", color: "#B3E5FC" } })
+  );
+  const disciplinaTap = await findOrCreate(
+    () => prisma.disciplina.findFirst({ where: { nombre: "Tap" } }),
+    () => prisma.disciplina.create({ data: { nombre: "Tap", color: "#DCEDC8" } })
+  );
+  const disciplinaJazz = await findOrCreate(
+    () => prisma.disciplina.findFirst({ where: { nombre: "Jazz" } }),
+    () => prisma.disciplina.create({ data: { nombre: "Jazz", color: "#FFE0B2" } })
+  );
+  const disciplinaAcro = await findOrCreate(
+    () => prisma.disciplina.findFirst({ where: { nombre: "Acro" } }),
+    () => prisma.disciplina.create({ data: { nombre: "Acro", color: "#E1BEE7" } })
+  );
+
+  console.log("✅ Disciplinas creadas");
+
+  // ─────────────────────────────────────────────
+  // Grupos de prueba
+  // ─────────────────────────────────────────────
+
+  const grupoTinyFull = await findOrCreate(
+    () => prisma.grupo.findFirst({ where: { nombre: "TINY FULL" } }),
+    () => prisma.grupo.create({
+      data: {
+        nombre: "TINY FULL",
+        edadMin: 6,
+        edadMax: 8,
+        horasPorSemana: 10,
+        dias: ["L", "M", "X", "J", "V"],
+        horaInicio: "16:00",
+        duracionMinutos: 60,
+        cupo: 15,
+        salonId: salonPrincipal.id,
+      },
+    })
+  );
+
+  const grupoSeniorFull = await findOrCreate(
+    () => prisma.grupo.findFirst({ where: { nombre: "SENIOR FULL" } }),
+    () => prisma.grupo.create({
+      data: {
+        nombre: "SENIOR FULL",
+        edadMin: 15,
+        edadMax: 99,
+        horasPorSemana: 15.5,
+        dias: ["L", "M", "X", "J", "V", "S"],
+        horaInicio: "17:00",
+        duracionMinutos: 90,
+        cupo: 12,
+        salonId: salonPrincipal.id,
+      },
+    })
+  );
+
+  const grupoEpicOne2 = await findOrCreate(
+    () => prisma.grupo.findFirst({ where: { nombre: "EPIC ONE 2 CLASES" } }),
+    () => prisma.grupo.create({
+      data: {
+        nombre: "EPIC ONE 2 CLASES",
+        edadMin: 8,
+        edadMax: 12,
+        horasPorSemana: 4,
+        dias: ["L", "X"],
+        horaInicio: "16:00",
+        duracionMinutos: 120,
+        cupo: 15,
+        salonId: salonB.id,
+      },
+    })
+  );
+
+  console.log("✅ Grupos creados");
+
+  // ─────────────────────────────────────────────
+  // GrupoDisciplina (pivot)
+  // ─────────────────────────────────────────────
+
+  const pivotData = [
+    { grupoId: grupoTinyFull.id, disciplinaId: disciplinasBallet.id },
+    { grupoId: grupoTinyFull.id, disciplinaId: disciplinaHipHop.id },
+    { grupoId: grupoTinyFull.id, disciplinaId: disciplinaTap.id },
+    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinasBallet.id },
+    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinaHipHop.id },
+    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinaJazz.id },
+    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinaAcro.id },
+    { grupoId: grupoEpicOne2.id, disciplinaId: disciplinasBallet.id },
+    { grupoId: grupoEpicOne2.id, disciplinaId: disciplinaJazz.id },
+  ];
+
+  for (const pivot of pivotData) {
+    await findOrCreate(
+      () => prisma.grupoDisciplina.findUnique({
+        where: { grupoId_disciplinaId: pivot },
+      }),
+      () => prisma.grupoDisciplina.create({ data: pivot })
+    );
+  }
+
+  console.log("✅ GrupoDisciplina creado");
+
+  // ─────────────────────────────────────────────
+  // TarifaMensualidad (upsert por grupoId — campo único)
+  // ─────────────────────────────────────────────
+
+  await prisma.tarifaMensualidad.upsert({
+    where: { grupoId: grupoTinyFull.id },
+    update: {},
+    create: {
+      grupoId: grupoTinyFull.id,
+      precioMensualidad: 1500,
+      precioPreseason: 999,
+      horasPorSemana: 10,
+    },
+  });
+
+  await prisma.tarifaMensualidad.upsert({
+    where: { grupoId: grupoSeniorFull.id },
+    update: {},
+    create: {
+      grupoId: grupoSeniorFull.id,
+      precioMensualidad: 1900,
+      precioPreseason: 999,
+      horasPorSemana: 15.5,
+    },
+  });
+
+  await prisma.tarifaMensualidad.upsert({
+    where: { grupoId: grupoEpicOne2.id },
+    update: {},
+    create: {
+      grupoId: grupoEpicOne2.id,
+      precioMensualidad: 1000,
+      precioPreseason: 999,
+      horasPorSemana: 4,
+    },
+  });
+
+  console.log("✅ Tarifas de mensualidad creadas");
 
   // ─────────────────────────────────────────────
   // Resumen
