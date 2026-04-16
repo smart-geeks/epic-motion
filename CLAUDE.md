@@ -13,135 +13,128 @@ La app gestiona la operación completa: alumnos, asistencia, cobranza, comunicac
 | Framework | Next.js 14 (App Router) |
 | Lenguaje | TypeScript (estricto) |
 | Estilos | Tailwind CSS |
-| Animaciones | Framer Motion |
-| ORM | Prisma |
-| Base de datos | PostgreSQL |
+| Animaciones | GSAP (ScrollTrigger, CustomEase, useGSAP) |
+| ORM | Prisma 7 (driver adapter: @prisma/adapter-pg) |
+| Base de datos | PostgreSQL (Supabase) |
 | Autenticación | NextAuth.js con RBAC |
 | Estado global | Zustand |
 | Iconos | Lucide React |
 | Toasts | Sonner |
-| Storage | S3 o Supabase Storage (comprobantes, PDFs, imágenes) |
+| Storage | Supabase Storage (comprobantes, PDFs, imágenes) |
 | Email | SendGrid o Mailgun |
 | PDF | React-PDF o @react-pdf/renderer |
 | Deploy | Vercel |
 
-## Estructura de carpetas
+## Estructura de carpetas (estado actual)
+
+Solo se listan archivos que **realmente existen**. Los pendientes se marcan con `# pendiente`.
 
 ```
 epic-motion/
-├── CLAUDE.md                    # Este archivo (contexto para Claude Code)
-├── PROYECTO.md                  # Reglas de negocio detalladas
+├── CLAUDE.md
+├── PROYECTO.md
+├── middleware.ts                    # CORS + RBAC (protección de rutas por rol)
+├── next.config.mjs                  # Security headers (HSTS, CSP, X-Frame-Options…)
 ├── package.json
-├── next.config.mjs
 ├── tailwind.config.ts
 ├── tsconfig.json
 ├── prisma/
-│   ├── schema.prisma            # Schema completo de la BD
-│   └── seed.ts                  # Datos de ejemplo
+│   ├── schema.prisma                # Schema completo — 21 tablas, UUIDs, Decimal
+│   └── seed.ts                      # Datos de prueba (findOrCreate, UUID-compatible)
+├── supabase/
+│   └── rls.sql                      # Políticas Row Level Security (5 tablas)
 ├── public/
-│   ├── images/                  # Imágenes optimizadas (WebP + JPG fallback)
-│   │   ├── hero-dancer-desktop.webp
-│   │   ├── ballet.webp
-│   │   ├── hiphop.webp
-│   │   ├── contemporaneo.webp
-│   │   ├── gallery-1.webp ... gallery-4.webp
-│   │   └── studio.webp
-│   ├── logo.png                 # Logo dark mode
-│   ├── logo-light.png           # Logo light mode
+│   ├── images/
+│   │   ├── hero-dancer-desktop.webp/jpg
+│   │   ├── ballet.webp/jpg
+│   │   ├── hiphop.webp/jpg
+│   │   ├── contemporaneo.webp/jpg
+│   │   ├── gallery-1..4.webp/jpg
+│   │   └── studio.webp/jpg
+│   ├── logo.png                     # Logo dark mode
+│   ├── logo-light.png               # Logo light mode
 │   └── favicon.png
 ├── app/
-│   ├── layout.tsx               # Layout raíz (fuentes, providers, metadata)
-│   ├── page.tsx                 # Landing page pública (ruta /)
-│   ├── globals.css              # Tailwind base + custom properties
-│   ├── (auth)/
-│   │   ├── login/page.tsx       # Login para padres/maestros/admin
-│   │   └── recuperar/page.tsx   # Recuperación de contraseña
+│   ├── layout.tsx                   # Layout raíz (fuentes, providers, metadata)
+│   ├── page.tsx                     # Landing page pública (ruta /)
+│   ├── globals.css
+│   ├── providers.tsx                # SessionProvider de NextAuth
+│   ├── login/
+│   │   └── page.tsx                 # Login para todos los roles
 │   ├── (admin)/
-│   │   ├── layout.tsx           # Layout con sidebar admin
-│   │   ├── dashboard/page.tsx   # Resumen del día
-│   │   ├── usuarios/page.tsx    # CRUD usuarios con roles
-│   │   ├── alumnas/page.tsx     # Gestión de alumnas
-│   │   ├── grupos/page.tsx      # Grupos y horarios
-│   │   ├── inscripciones/page.tsx
-│   │   ├── cobranza/page.tsx    # Pagos y estado de cuenta
-│   │   ├── nomina/page.tsx      # Pago a profesores
-│   │   ├── noticias/page.tsx    # Publicar noticias
-│   │   ├── eventos/page.tsx     # Gestión de eventos
-│   │   ├── configuracion/page.tsx # Alertas, cortes, umbrales
-│   │   └── reportes/page.tsx    # Analytics y exportación
+│   │   ├── layout.tsx               # Sidebar admin (desktop) + topbar móvil
+│   │   └── admin/
+│   │       └── dashboard/
+│   │           └── page.tsx         # Resumen del día (métricas en cards)
+│   │       # usuarios/      → pendiente
+│   │       # alumnas/       → pendiente
+│   │       # grupos/        → pendiente
+│   │       # inscripciones/ → pendiente
+│   │       # cobranza/      → pendiente
+│   │       # nomina/        → pendiente
+│   │       # noticias/      → pendiente
+│   │       # eventos/       → pendiente
+│   │       # configuracion/ → pendiente
+│   │       # reportes/      → pendiente
 │   ├── (maestro)/
-│   │   ├── layout.tsx           # Layout con bottom nav maestro
-│   │   ├── agenda/page.tsx      # Clases del día/semana
-│   │   ├── asistencia/page.tsx  # Toma de asistencia + uniforme
-│   │   ├── notas/page.tsx       # Notas rutinarias + extraordinarias
-│   │   └── privadas/page.tsx    # Agenda de clases privadas
+│   │   ├── layout.tsx               # Bottom nav maestro
+│   │   └── maestro/
+│   │       └── agenda/
+│   │           └── page.tsx         # Clases del día/semana
+│   │       # asistencia/ → pendiente
+│   │       # notas/      → pendiente
+│   │       # privadas/   → pendiente
 │   ├── (padre)/
-│   │   ├── layout.tsx           # Layout con bottom nav padre
-│   │   ├── home/page.tsx        # Noticias + Notas de hijas
-│   │   ├── hijas/page.tsx       # Stats y gamificación por hija
-│   │   ├── pagos/page.tsx       # Estado de cuenta
-│   │   ├── eventos/page.tsx     # Calendario de eventos
-│   │   └── notificaciones/page.tsx
+│   │   ├── layout.tsx               # Bottom nav padre
+│   │   └── padre/
+│   │       └── home/
+│   │           └── page.tsx         # Noticias + notas de hijas
+│   │       # hijas/          → pendiente
+│   │       # pagos/          → pendiente
+│   │       # eventos/        → pendiente
+│   │       # notificaciones/ → pendiente
 │   └── api/
-│       ├── auth/[...nextauth]/route.ts
-│       ├── usuarios/route.ts
-│       ├── alumnas/route.ts
-│       ├── asistencias/route.ts
-│       ├── notas/route.ts
-│       ├── pagos/route.ts
-│       ├── eventos/route.ts
-│       ├── noticias/route.ts
-│       ├── nomina/route.ts
-│       └── gamificacion/route.ts
+│       └── auth/[...nextauth]/
+│           └── route.ts             # NextAuth handler
+│       # usuarios/    → pendiente
+│       # alumnas/     → pendiente
+│       # asistencias/ → pendiente
+│       # notas/       → pendiente
+│       # pagos/       → pendiente
+│       # eventos/     → pendiente
+│       # noticias/    → pendiente
+│       # nomina/      → pendiente
+│       # gamificacion/→ pendiente
 ├── components/
-│   ├── landing/                 # Componentes de la landing page
-│   │   ├── Navbar.tsx
-│   │   ├── Hero.tsx
-│   │   ├── ValoresCards.tsx
-│   │   ├── EstilosGrid.tsx
-│   │   ├── Nosotros.tsx
-│   │   ├── GaleriaTikTok.tsx
-│   │   ├── CTASection.tsx
-│   │   └── Footer.tsx
-│   ├── ui/                      # Componentes reutilizables
-│   │   ├── Button.tsx
-│   │   ├── Card.tsx
-│   │   ├── Modal.tsx
-│   │   ├── Badge.tsx
-│   │   ├── Input.tsx
-│   │   ├── Select.tsx
-│   │   ├── Table.tsx
-│   │   ├── ThemeToggle.tsx
-│   │   └── LoadingSpinner.tsx
-│   ├── layout/
-│   │   ├── AdminSidebar.tsx
-│   │   ├── BottomNav.tsx
-│   │   └── TopBar.tsx
-│   └── shared/
-│       ├── StudentCard.tsx
-│       ├── AttendanceButton.tsx
-│       ├── UniformeCheck.tsx
-│       ├── NotaCard.tsx
-│       ├── EventCard.tsx
-│       ├── PaymentBadge.tsx
-│       └── ProgressRing.tsx
+│   └── landing/                     # Todos implementados ✅
+│       ├── Navbar.tsx
+│       ├── Hero.tsx
+│       ├── ValoresCards.tsx
+│       ├── EstilosGrid.tsx
+│       ├── Nosotros.tsx
+│       ├── GaleriaTikTok.tsx
+│       ├── CTASection.tsx
+│       ├── LoginModal.tsx
+│       └── Footer.tsx
+│   # ui/     → pendiente (Button, Card, Modal, Badge, Input, Select, Table…)
+│   # layout/ → pendiente (AdminSidebar, BottomNav, TopBar)
+│   # shared/ → pendiente (StudentCard, AttendanceButton, NotaCard…)
 ├── lib/
-│   ├── prisma.ts                # Cliente Prisma singleton
-│   ├── auth.ts                  # Configuración NextAuth + RBAC
-│   ├── utils.ts                 # Helpers generales
-│   └── constants.ts             # Constantes de la app
-├── hooks/
-│   ├── useAuth.ts
-│   ├── useTheme.ts
-│   └── useNotifications.ts
-├── stores/
-│   └── useStore.ts              # Zustand store
-└── types/
-    ├── next-auth.d.ts
-    └── models.ts                # Tipos TypeScript del dominio
+│   ├── auth.ts                      # Configuración NextAuth + RBAC + JWT callbacks
+│   ├── prisma.ts                    # Cliente Prisma singleton
+│   ├── prisma-rls.ts                # withRLS() / withAdminRLS() para inyectar sesión a RLS
+│   └── actions/
+│       └── inscripcion.ts           # Server action de inscripción
+│   # utils.ts    → pendiente
+│   # constants.ts→ pendiente
+├── types/
+│   └── next-auth.d.ts               # Extensión de tipos de NextAuth (id, rol, nombre, avatar)
+│   # models.ts → pendiente
+└── # hooks/  → pendiente (useAuth, useTheme, useNotifications)
+  # stores/ → pendiente (Zustand store)
 ```
 
-## Paleta de colores (extraída de la landing existente)
+## Paleta de colores
 
 ### Dark mode (default)
 
@@ -158,18 +151,17 @@ Overlay:            rgba(10, 10, 10, 0.7)
 ### Light mode
 
 ```
-Fondo principal:    #FFFFFF   (blanco)
-Texto principal:    #0A0A0A   (negro)
+Fondo principal:    #FFFFFF
+Texto principal:    #0A0A0A
 Acento:             #000000   (negro, sin dorado en light)
-Texto secundario:   #666666   (gris)
-Superficies:        #F5F5F5   (gris claro)
+Texto secundario:   #666666
+Superficies:        #F5F5F5
 Superficies hover:  #E8E8E8
 ```
 
 ### Tailwind config
 
 ```typescript
-// tailwind.config.ts - colores custom
 colors: {
   epic: {
     black: '#0A0A0A',
@@ -184,27 +176,27 @@ colors: {
 ## Tipografías
 
 ```
-Montserrat  — Títulos, marca "EPIC MOTION", headings
-  Weights: 300 (light/subtítulos), 700 (bold/secciones), 800 (extrabold/marca)
+Montserrat         — Títulos, marca "EPIC MOTION", headings
+  Weights: 300 (light), 700 (bold), 800 (extrabold)
 
-Inter       — Body text, navegación, formularios, tablas
-  Weights: 400 (regular), 500 (medium), 600 (semibold)
+Inter              — Body text, navegación, formularios, tablas
+  Weights: 400, 500, 600
 
 Cormorant Garamond — Acentos elegantes (opcional, peso 600)
 ```
 
-Cargar desde Google Fonts en `app/layout.tsx` usando `next/font/google`.
+Cargadas desde Google Fonts en `app/layout.tsx` con `next/font/google`.
 
 ## Roles del sistema (4 activos)
 
 | Rol | Acceso |
 |---|---|
-| **admin** | Acceso total. CRUD usuarios, configurar alertas, aprobar notas, cobranza, nómina, noticias, eventos, reportes. Operado por la dueña (Luz) y su esposo. |
-| **maestro** | Agenda de clases, toma de asistencia con check-in y uniforme, notas rutinarias + extraordinarias, pautas, agenda de clases privadas. |
-| **padre** | Home con noticias + notas de hijas, gamificación privada, stats asistencia, estado de cuenta, eventos, agendar clases privadas, confirmar lectura de noticias. |
-| **recepcionista** | (Por confirmar) Registrar pagos en efectivo, gestionar inscripciones, atender padres. |
+| **ADMIN** | Acceso total. CRUD usuarios, alertas, cobranza, nómina, noticias, eventos, reportes. Operado por Luz y su esposo. |
+| **MAESTRO** | Agenda de clases, toma de asistencia + uniforme, notas rutinarias y extraordinarias, clases privadas. |
+| **PADRE** | Home con noticias + notas de hijas, gamificación privada, estado de cuenta, eventos, agendar clases privadas. |
+| **RECEPCIONISTA** | Registrar pagos en efectivo, gestionar inscripciones. |
 
-**IMPORTANTE**: NO hay panel de estudiantes. Las alumnas son menores de edad y no tienen acceso a la app. Todo se gestiona a través de las cuentas de los padres.
+**IMPORTANTE**: NO hay panel de estudiantes. Las alumnas son menores de edad; todo se gestiona a través de las cuentas de los padres.
 
 ## Reglas de negocio críticas
 
@@ -213,178 +205,208 @@ Cargar desde Google Fonts en `app/layout.tsx` usando `next/font/google`.
 - Un click: Presente, Tarde, Ausente.
 - Botón extra de uniforme: popup con check de zapato, tocado, tutú.
 - Uniforme incompleto → notificación automática al padre.
-- Faltas consecutivas: rango configurable por admin (3 a 6), disparan alerta al padre.
+- Faltas consecutivas: rango configurable por admin (3-6), disparan alerta al padre.
 - PRIORIDAD: minimizar clicks. El maestro debe pasar lista rápido.
 
 ### Check-in del profesor
 
 - La clase se considera "iniciada" cuando el maestro marca la primera asistencia.
-- Si no hay check-in en X minutos (configurable), se marca como retraso/no iniciada → notifica al admin.
+- Si no hay check-in en X minutos (configurable en `Configuracion`), se marca como retraso/no iniciada → notifica al admin.
 
 ### Notas y pautas
 
 - Notas rutinarias: evaluación por clase.
-- Notas extraordinarias: retroalimentación especial cuando el maestro decide.
+- Notas extraordinarias: retroalimentación especial.
 - Flujo: maestro escribe → admin revisa/aprueba → se publica al padre.
 
 ### Gamificación (PRIVADA)
 
-- Cada padre solo ve el progreso de sus propias hijas. SIN rankings públicos, SIN comparaciones entre alumnas.
+- Cada padre solo ve el progreso de sus propias hijas. SIN rankings públicos.
 - El admin tiene vista global.
 - Puntos por: asistencia, puntualidad, uniforme completo, notas positivas.
 
-### Cobranza
+### Cobranza (Motor de Cobros)
 
+- Catálogo de conceptos (`Concepto`): mensualidad, uniforme, inscripción, clase privada, etc.
+- Cargos (`Cargo`): cada cargo tiene `montoOriginal` (del catálogo), `descuento` (default 0) y `montoFinal` = montoOriginal - descuento. El `motivoDescuento` es texto libre.
+- Notificaciones WhatsApp: `notificado3Dias` y `notificadoHoy` son flags booleanos que actúan de idempotency guard — evitan reenviar si el admin ya mandó el recordatorio manualmente o si n8n ya lo procesó.
 - Pago en efectivo en la academia (registro manual por admin/recepcionista).
-- Opción de adjuntar comprobante (foto).
-- Fecha de corte: configurable global o individual por alumna.
-- Recordatorios automáticos: por vencer y vencidos.
+- Un `Pago` puede cubrir N `Cargos` (mensualidad + uniforme en una transacción).
+- Fecha de corte configurable global en `Configuracion.dia_corte_global`.
 
 ### Noticias
 
 - Publicadas por admin con imagen, título, texto.
-- Padres pueden confirmar lectura.
-- Admin ve quién confirmó y quién no.
+- Padres confirman lectura. Admin ve quién confirmó y quién no.
 
 ### Inscripciones
 
-- Al inscribir alumna se crea automáticamente usuario y contraseña para el padre.
-- Se genera PDF de bienvenida atractivo.
-- Paquetes mensuales con X clases/semana (configurable).
+- Al inscribir alumna se crea usuario y contraseña para el padre.
+- Se genera PDF de bienvenida.
+- Paquetes mensuales con X clases/semana.
 
 ### Clases privadas
 
-- Maestro define disponibilidad en agenda.
-- Padre agenda con prepago obligatorio (1-2 días anticipación).
-- Se publican disponibilidades en el Home.
-
-### Clases muestra
-
-- Alumna nueva entra a clase existente como invitada.
-- Con control de cupo.
+- Maestro define disponibilidad. Padre agenda con prepago obligatorio (1-2 días anticipación).
 
 ## Convenciones de código
 
 ### General
 
 - TypeScript estricto (`strict: true`).
-- Usar `async/await` siempre, nunca `.then()`.
+- `async/await` siempre, nunca `.then()`.
 - Nombres de archivos: `kebab-case` para rutas, `PascalCase` para componentes.
-- Comentarios en español (el equipo habla español).
+- Comentarios en español.
 - Mensajes de commit en español.
 
 ### Componentes React
 
 - Functional components con arrow functions.
 - Props tipadas con interfaces (no `type`).
-- Usar `'use client'` solo cuando sea necesario (preferir Server Components).
+- `'use client'` solo cuando sea necesario (preferir Server Components).
 - Componentes pequeños y enfocados (< 150 líneas).
 
 ### API Routes
 
-- Validar input siempre (usar Zod).
+- Validar input con Zod.
 - Retornar `NextResponse.json()` con status codes apropiados.
-- Proteger con middleware de autenticación por rol.
+- Usar `withRLS(session, tx => ...)` de `lib/prisma-rls.ts` en todas las rutas que accedan a la BD.
 - Manejar errores con try/catch y respuestas consistentes.
 
 ### Estilos
 
-- Tailwind CSS para todo. No CSS custom excepto en `globals.css` para variables base.
-- Dark mode con el prefix `dark:` de Tailwind.
-- Mobile-first: diseñar para móvil primero, agregar breakpoints para desktop.
-- Usar las clases custom de `epic-*` para colores de marca.
+- Tailwind CSS para todo. No CSS custom excepto en `globals.css`.
+- Dark mode con prefix `dark:`.
+- Mobile-first.
+- Usar clases `epic-*` para colores de marca.
 
 ### Base de datos
 
 - Prisma para todo acceso a BD.
-- Migraciones con `prisma migrate dev`.
-- Seed con datos de ejemplo para desarrollo.
-- IDs con `cuid()` o `uuid()`.
+- **IDs exclusivamente UUID generados en PostgreSQL:** `@default(dbgenerated("gen_random_uuid()")) @db.Uuid` en todos los modelos. Todas las FK también llevan `@db.Uuid`. NUNCA usar cuid.
+- **Flujo de desarrollo:** `prisma db push` (no `prisma migrate dev`).
+- Tras cualquier cambio al schema correr `prisma generate` para actualizar el cliente.
+- Campos de dinero: siempre `Decimal @db.Decimal(10, 2)`. Nunca `Float`.
+
+## Seguridad
+
+### CORS (`middleware.ts`)
+
+Solo acepta requests desde orígenes autorizados: `epicmotion.com`, `www.epicmotion.com`, `epicmotion.mx`, `www.epicmotion.mx`, `localhost:3000`. Rutas `/api/*` con origen no autorizado → 403 JSON. Preflight OPTIONS → 204 inmediato.
+
+### Security Headers (`next.config.mjs`)
+
+Aplicados a todas las rutas:
+- `Strict-Transport-Security` — fuerza HTTPS 2 años
+- `Content-Security-Policy` — allowlists para scripts, estilos, fuentes, imágenes, conexiones, iframes
+- `X-Frame-Options: SAMEORIGIN` — anti-clickjacking
+- `X-Content-Type-Options: nosniff` — anti MIME sniffing
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy` — deshabilita cámara, micrófono, GPS, pagos, USB
+- `Cross-Origin-Resource-Policy / Opener-Policy` — anti-Spectre
+
+### Row Level Security (`supabase/rls.sql` + `lib/prisma-rls.ts`)
+
+Este proyecto usa **NextAuth**, no Supabase Auth. Las políticas RLS usan `current_setting('app.current_user_id', true)` y `current_setting('app.current_user_rol', true)` en lugar de `auth.uid()`.
+
+Tablas con RLS activo: `Usuario`, `Alumna`, `Pago`, `Sesion`, `Cargo`.
+
+**Patrón obligatorio en API routes:**
+```ts
+const session = await getServerSession(authOptions);
+const data = await withRLS(session, (tx) => tx.alumna.findMany());
+```
+
+Si la sesión es null o no tiene rol → `withRLS` lanza error (fail closed). Nunca ejecutar queries sin RLS en rutas autenticadas.
 
 ## Comunicación (WhatsApp)
 
 ### MVP (meses 1-2)
 
-Abrir WhatsApp Web con texto dinámico prellenado (sin API):
-
+Abrir WhatsApp Web con texto dinámico prellenado:
 ```
 https://wa.me/528712044277?text=Hola%20Epic%20Motion...
 ```
 
 ### Mes 3+
 
-Migrar a Meta Cloud API (WhatsApp Business) para envío automático de notificaciones.
+Migrar a Meta Cloud API (WhatsApp Business) para envío automático. Los flags `notificado3Dias` y `notificadoHoy` en `Cargo` están diseñados para que n8n los consulte y actualice sin reenviar mensajes duplicados.
 
 ## Diseño y UX
 
 ### Principios
 
 - **Sobrio, elegante, disciplina** — alineado con la identidad de Epic Motion.
-- **Mobile-first** — los padres y maestros usan principalmente celular.
-- **Minimizar clicks** — especialmente para toma de asistencia (acción más frecuente).
-- **Tarjetas sobre tablas** — en móvil usar cards y popovers, no tablas largas.
+- **Mobile-first** — padres y maestros usan principalmente celular.
+- **Minimizar clicks** — especialmente para toma de asistencia.
+- **Tarjetas sobre tablas** — en móvil usar cards y popovers.
 - **Dark mode es el default** — con toggle para light mode.
 
 ### Layout por rol
 
-- **Admin**: Sidebar lateral en desktop, bottom nav en mobile.
+- **Admin**: Sidebar lateral en desktop, topbar + hamburger en mobile.
 - **Maestro**: Bottom nav con 4 tabs (Agenda, Asistencia, Notas, Privadas).
 - **Padre**: Bottom nav con 5 tabs (Home, Hijas, Pagos, Eventos, Notificaciones).
 
 ### Landing page (ruta /)
 
-La landing page pública es la puerta de entrada. Secciones:
+1. Hero — "EPIC MOTION" con fondo de bailarina, lema "Consciente · Constante · Correcto"
+2. ValoresCards — 3 cards (Consciente, Constante, Correcto) con animaciones GSAP
+3. EstilosGrid — Ballet, Hip-hop, Contemporáneo
+4. Nosotros — Beneficios con checklist
+5. GaleriaTikTok — Videos embebidos
+6. CTASection — "Agenda clase de prueba" + redes sociales
+7. Footer — Logo, ubicación, copyright
+8. Navbar — Botón LOGIN prominente que abre LoginModal
 
-1. Hero: "EPIC MOTION" con fondo de bailarina, lema "Consciente · Constante · Correcto"
-2. Valores: 3 cards (Consciente, Constante, Correcto)
-3. Estilos: Grid con Ballet, Hip-hop, Contemporáneo
-4. Nosotros: Beneficios con checklist
-5. Galería: Videos de TikTok embebidos
-6. CTA: "Agenda clase de prueba" + redes sociales
-7. Footer: Logo, ubicación, copyright
-8. Botón de LOGIN/ACCEDER prominente que lleva a /login
-
-## Assets disponibles (de la landing existente)
-
-Copiar de `public/images/` — ya optimizados en WebP con fallback JPG:
+## Modelos de datos (Prisma)
 
 ```
-hero-dancer-desktop.webp/jpg    (1920x1080, hero background)
-ballet.webp/jpg                 (400x500, card estilo)
-hiphop.webp/jpg                 (400x500, card estilo)
-contemporaneo.webp/jpg          (400x500, card estilo)
-gallery-1..4.webp/jpg           (galería)
-studio.webp/jpg                 (instalaciones)
-logo.png                        (logo dark mode)
-logo-light.png                  (logo light mode, "descarga (3).png" renombrado)
-og-image.jpg                    (Open Graph)
+Usuario        — id (uuid), email, password (bcrypt), nombre, apellido, telefono?, rol (enum), activo
+Alumna         — id, nombre, apellido, fechaNacimiento, estatus (enum), padreId (FK Usuario)
+Salon          — id, nombre, descripcion?, capacidad
+Clase          — id, nombre, estilo (enum), nivel?, duracion, dias[], horario, cupo, salonId, profesorId
+AlumnaClase    — alumnaId + claseId (pivot, unique constraint)
+Sesion         — id, fecha, horaInicio, horaFin, estado (enum), checkinAt?, claseId, profesorId
+Asistencia     — id, estado (enum), uniforme, uniformeMotivo[], sesionId, alumnaId
+Profesor       — id, tarifaHora (Decimal), especialidades[], usuarioId (único)
+Pago           — id, importe (Decimal), concepto, fechaVencimiento, fechaPago?, estado, comprobanteUrl?, tipo (enum), alumnaId, padreId
+Evento         — id, tipo (enum), titulo, descripcion?, fecha, ubicacion?, cupo?, activo
+EventoGrupo    — eventoId + claseId (tabla pivot, PK compuesta)
+Noticia        — id, titulo, cuerpo, imagenUrl?, fecha, activa, autorId
+LecturaNoticia — noticiaId + padreId (pivot)
+Nota           — id, tipo (enum), contenido, estado (enum), alumnaId, maestroId
+Logro          — id, tipo, nombre, descripcion, icono?, puntos, fechaDesbloqueo, alumnaId
+Notificacion   — id, tipo, titulo, cuerpo?, leida, fecha, usuarioId
+Paquete        — id, nombre, clasesPorSemana, precio (Decimal), estilosIncluidos[], activo
+ClasePrivada   — id, fecha, hora, duracion, estado (enum), alumnaId, profesorId, prepagoId?
+Concepto       — id, nombre, descripcion?, tipo (enum), precioSugerido (Decimal), activo
+                 Tipos: MENSUALIDAD, INSCRIPCION, UNIFORME, ENSAYO_SOLO, CLASE_PRIVADA, OTRO
+Cargo          — id, montoOriginal (Decimal), descuento (Decimal, default 0), montoFinal (Decimal),
+                 motivoDescuento?, fechaVencimiento, fechaPago?, estado (enum),
+                 notificado3Dias (bool), notificadoHoy (bool),
+                 conceptoId, alumnaId, padreId, pagoId?
+Configuracion  — id, clave (unique), valor, descripcion?
+                 Claves: umbral_faltas, minutos_checkin, dia_corte_global
 ```
 
-## Modelos de datos principales (Prisma)
+## Datos de prueba (seed)
 
 ```
-Usuario         — id, nombre, email, teléfono, rol, estatus, password
-Alumna          — id, nombre, fecha_nac, padre_id, estatus
-Clase (grupo)   — id, nombre, estilo, nivel, duración, días, horario, cupo, salón_id, profesor_id
-Sesión          — id, clase_id, fecha, hora_inicio, hora_fin, profesor_id, estado
-Asistencia      — id, sesión_id, alumna_id, status, uniforme, uniforme_motivo
-Pago            — id, alumna_id, padre_id, importe, fecha_vencimiento, estado, comprobante_url
-Profesor        — id, usuario_id, tarifa_hora, disponibilidad_privadas
-Evento          — id, tipo, título, descripción, fecha, ubicación, cupo
-Noticia         — id, título, cuerpo, imagen_url, fecha, lecturas_confirmadas
-Nota            — id, alumna_id, maestro_id, tipo, contenido, estado (borrador/aprobada/publicada)
-Logro           — id, alumna_id, tipo, nombre, puntos, fecha_desbloqueo
-Notificación    — id, usuario_id, tipo, título, leída, fecha
-Paquete         — id, nombre, clases_por_semana, precio, estilos_incluidos
-ClasePrivada    — id, alumna_id, profesor_id, fecha, hora, estado, prepago_id
-Configuración   — id, clave, valor (umbral_faltas, minutos_checkin, dia_corte)
+Admin      → luz@epicmotion.com       / admin123
+Maestro    → carolina@epicmotion.com  / maestro123
+Maestro    → roberto@epicmotion.com   / maestro123
+Padre      → juan@epicmotion.com      / padre123
+Padre      → ana@epicmotion.com       / padre123
 ```
 
-## Roadmap (referencia para priorizar trabajo)
+Alumnas: Sofía Pérez (Ballet+Tap), Valentina Pérez (Ballet), María López (Jazz+Acro).
+
+## Roadmap
 
 ```
-Semana 0  → Landing page (reconstruir en Next.js/React/Tailwind)
-Mes 1     → Auth + RBAC + Panel admin + Grupos/horarios + Inscripciones + PDF
+Semana 0  → Landing page ✅
+Mes 1     → Auth + RBAC ✅ | Panel admin + Grupos/horarios + Inscripciones + PDF
 Mes 2     → Asistencia + Check-in + Panel maestros + Notas + Panel padres + Cobranza + Nómina
 Mes 3     → Gamificación + Notificaciones (push + WhatsApp API) + Eventos + Noticias + Clases privadas
 Mes 4     → Testing + PWA + Reportes + Onboarding datos reales + Deploy producción

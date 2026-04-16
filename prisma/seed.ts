@@ -7,104 +7,112 @@ const connectionString = process.env.DATABASE_URL!;
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
+// Helper: busca por nombre, crea si no existe
+async function findOrCreate<T>(
+  findFn: () => Promise<T | null>,
+  createFn: () => Promise<T>
+): Promise<T> {
+  return (await findFn()) ?? (await createFn());
+}
+
 async function main() {
   console.log("🌱 Iniciando seed de Epic Motion...");
 
   // ─────────────────────────────────────────────
-  // Usuarios
+  // Usuarios (upsert por email — campo único)
   // ─────────────────────────────────────────────
 
-  const passwordAdmin = await bcrypt.hash("admin123", 10);
+  const passwordAdmin   = await bcrypt.hash("admin123",   10);
   const passwordMaestro = await bcrypt.hash("maestro123", 10);
-  const passwordPadre = await bcrypt.hash("padre123", 10);
+  const passwordPadre   = await bcrypt.hash("padre123",   10);
 
-  const luz = await prisma.usuario.upsert({
-    where: { email: "luz@epicmotion.com" },
+  await prisma.usuario.upsert({
+    where:  { email: "luz@epicmotion.com" },
     update: {},
     create: {
-      email: "luz@epicmotion.com",
+      email:    "luz@epicmotion.com",
       password: passwordAdmin,
-      nombre: "Luz María",
+      nombre:   "Luz María",
       apellido: "Herrera",
       telefono: "8712044277",
-      rol: Rol.ADMIN,
+      rol:      Rol.ADMIN,
     },
   });
 
   const carolina = await prisma.usuario.upsert({
-    where: { email: "carolina@epicmotion.com" },
+    where:  { email: "carolina@epicmotion.com" },
     update: {},
     create: {
-      email: "carolina@epicmotion.com",
+      email:    "carolina@epicmotion.com",
       password: passwordMaestro,
-      nombre: "Carolina",
+      nombre:   "Carolina",
       apellido: "López",
       telefono: "8711000001",
-      rol: Rol.MAESTRO,
+      rol:      Rol.MAESTRO,
     },
   });
 
   const roberto = await prisma.usuario.upsert({
-    where: { email: "roberto@epicmotion.com" },
+    where:  { email: "roberto@epicmotion.com" },
     update: {},
     create: {
-      email: "roberto@epicmotion.com",
+      email:    "roberto@epicmotion.com",
       password: passwordMaestro,
-      nombre: "Roberto",
+      nombre:   "Roberto",
       apellido: "García",
       telefono: "8711000002",
-      rol: Rol.MAESTRO,
+      rol:      Rol.MAESTRO,
     },
   });
 
   const juan = await prisma.usuario.upsert({
-    where: { email: "juan@epicmotion.com" },
+    where:  { email: "juan@epicmotion.com" },
     update: {},
     create: {
-      email: "juan@epicmotion.com",
+      email:    "juan@epicmotion.com",
       password: passwordPadre,
-      nombre: "Juan",
+      nombre:   "Juan",
       apellido: "Pérez",
       telefono: "8711000003",
-      rol: Rol.PADRE,
+      rol:      Rol.PADRE,
     },
   });
 
   const ana = await prisma.usuario.upsert({
-    where: { email: "ana@epicmotion.com" },
+    where:  { email: "ana@epicmotion.com" },
     update: {},
     create: {
-      email: "ana@epicmotion.com",
+      email:    "ana@epicmotion.com",
       password: passwordPadre,
-      nombre: "Ana",
+      nombre:   "Ana",
       apellido: "López",
       telefono: "8711000004",
-      rol: Rol.PADRE,
+      rol:      Rol.PADRE,
     },
   });
 
   console.log("✅ Usuarios creados");
 
   // ─────────────────────────────────────────────
-  // Profesores
+  // Profesores (upsert por usuarioId — campo único)
   // ─────────────────────────────────────────────
 
-  const profesorCarolina = await prisma.profesor.upsert({
-    where: { usuarioId: carolina.id },
+  await prisma.profesor.upsert({
+    where:  { usuarioId: carolina.id },
     update: {},
     create: {
-      usuarioId: carolina.id,
-      tarifaHora: 250,
+      usuarioId:      carolina.id,
+      tarifaHora:     250,
       especialidades: ["BALLET", "TAP", "JAZZ"],
     },
   });
 
-  const profesorRoberto = await prisma.profesor.upsert({
-    where: { usuarioId: roberto.id },
+  await prisma.profesor.upsert({
+    where:  { usuarioId: roberto.id },
     update: {},
     create: {
-      usuarioId: roberto.id,
-      tarifaHora: 280,
+      usuarioId:      roberto.id,
+      tarifaHora:     280,
       especialidades: ["HIPHOP", "ACRO"],
     },
   });
@@ -112,200 +120,200 @@ async function main() {
   console.log("✅ Profesores creados");
 
   // ─────────────────────────────────────────────
-  // Salones
+  // Salones (findOrCreate por nombre)
   // ─────────────────────────────────────────────
 
-  const salonPrincipal = await prisma.salon.upsert({
-    where: { id: "salon-principal" },
-    update: {},
-    create: {
-      id: "salon-principal",
-      nombre: "Salón Principal",
-      descripcion: "Salón principal con espejo y barra de ballet",
-      capacidad: 20,
-    },
-  });
+  const salonPrincipal = await findOrCreate(
+    () => prisma.salon.findFirst({ where: { nombre: "Salón Principal" } }),
+    () => prisma.salon.create({
+      data: {
+        nombre:      "Salón Principal",
+        descripcion: "Salón principal con espejo y barra de ballet",
+        capacidad:   20,
+      },
+    })
+  );
 
-  const salonB = await prisma.salon.upsert({
-    where: { id: "salon-b" },
-    update: {},
-    create: {
-      id: "salon-b",
-      nombre: "Salón B",
-      descripcion: "Salón secundario para grupos pequeños",
-      capacidad: 15,
-    },
-  });
+  const salonB = await findOrCreate(
+    () => prisma.salon.findFirst({ where: { nombre: "Salón B" } }),
+    () => prisma.salon.create({
+      data: {
+        nombre:      "Salón B",
+        descripcion: "Salón secundario para grupos pequeños",
+        capacidad:   15,
+      },
+    })
+  );
 
   console.log("✅ Salones creados");
 
   // ─────────────────────────────────────────────
-  // Clases (grupos)
+  // Clases (findOrCreate por nombre)
   // ─────────────────────────────────────────────
 
-  const clasesBallet = await prisma.clase.upsert({
-    where: { id: "clase-ballet" },
-    update: {},
-    create: {
-      id: "clase-ballet",
-      nombre: "Ballet Infantil",
-      estilo: EstiloClase.BALLET,
-      nivel: "Infantil",
-      duracion: 60,
-      dias: ["Lunes", "Miércoles"],
-      horario: "16:00",
-      cupo: 15,
-      salonId: salonPrincipal.id,
-      profesorId: carolina.id,
-    },
-  });
+  const clasesBallet = await findOrCreate(
+    () => prisma.clase.findFirst({ where: { nombre: "Ballet Infantil" } }),
+    () => prisma.clase.create({
+      data: {
+        nombre:     "Ballet Infantil",
+        estilo:     EstiloClase.BALLET,
+        nivel:      "Infantil",
+        duracion:   60,
+        dias:       ["Lunes", "Miércoles"],
+        horario:    "16:00",
+        cupo:       15,
+        salonId:    salonPrincipal.id,
+        profesorId: carolina.id,
+      },
+    })
+  );
 
-  const claseHiphop = await prisma.clase.upsert({
-    where: { id: "clase-hiphop" },
-    update: {},
-    create: {
-      id: "clase-hiphop",
-      nombre: "Hip-Hop Urbano",
-      estilo: EstiloClase.HIPHOP,
-      nivel: "Intermedio",
-      duracion: 60,
-      dias: ["Martes", "Jueves"],
-      horario: "16:00",
-      cupo: 20,
-      salonId: salonPrincipal.id,
-      profesorId: roberto.id,
-    },
-  });
+  await findOrCreate(
+    () => prisma.clase.findFirst({ where: { nombre: "Hip-Hop Urbano" } }),
+    () => prisma.clase.create({
+      data: {
+        nombre:     "Hip-Hop Urbano",
+        estilo:     EstiloClase.HIPHOP,
+        nivel:      "Intermedio",
+        duracion:   60,
+        dias:       ["Martes", "Jueves"],
+        horario:    "16:00",
+        cupo:       20,
+        salonId:    salonPrincipal.id,
+        profesorId: roberto.id,
+      },
+    })
+  );
 
-  const claseTap = await prisma.clase.upsert({
-    where: { id: "clase-tap" },
-    update: {},
-    create: {
-      id: "clase-tap",
-      nombre: "Tap Principiantes",
-      estilo: EstiloClase.TAP,
-      nivel: "Principiante",
-      duracion: 60,
-      dias: ["Lunes", "Miércoles"],
-      horario: "17:00",
-      cupo: 15,
-      salonId: salonB.id,
-      profesorId: carolina.id,
-    },
-  });
+  const claseTap = await findOrCreate(
+    () => prisma.clase.findFirst({ where: { nombre: "Tap Principiantes" } }),
+    () => prisma.clase.create({
+      data: {
+        nombre:     "Tap Principiantes",
+        estilo:     EstiloClase.TAP,
+        nivel:      "Principiante",
+        duracion:   60,
+        dias:       ["Lunes", "Miércoles"],
+        horario:    "17:00",
+        cupo:       15,
+        salonId:    salonB.id,
+        profesorId: carolina.id,
+      },
+    })
+  );
 
-  const claseJazz = await prisma.clase.upsert({
-    where: { id: "clase-jazz" },
-    update: {},
-    create: {
-      id: "clase-jazz",
-      nombre: "Jazz Contemporáneo",
-      estilo: EstiloClase.JAZZ,
-      nivel: "Intermedio",
-      duracion: 60,
-      dias: ["Martes", "Jueves"],
-      horario: "17:00",
-      cupo: 15,
-      salonId: salonB.id,
-      profesorId: carolina.id,
-    },
-  });
+  const claseJazz = await findOrCreate(
+    () => prisma.clase.findFirst({ where: { nombre: "Jazz Contemporáneo" } }),
+    () => prisma.clase.create({
+      data: {
+        nombre:     "Jazz Contemporáneo",
+        estilo:     EstiloClase.JAZZ,
+        nivel:      "Intermedio",
+        duracion:   60,
+        dias:       ["Martes", "Jueves"],
+        horario:    "17:00",
+        cupo:       15,
+        salonId:    salonB.id,
+        profesorId: carolina.id,
+      },
+    })
+  );
 
-  const claseAcro = await prisma.clase.upsert({
-    where: { id: "clase-acro" },
-    update: {},
-    create: {
-      id: "clase-acro",
-      nombre: "Acro Dance",
-      estilo: EstiloClase.ACRO,
-      nivel: "Avanzado",
-      duracion: 90,
-      dias: ["Viernes"],
-      horario: "16:00",
-      cupo: 12,
-      salonId: salonPrincipal.id,
-      profesorId: roberto.id,
-    },
-  });
+  const claseAcro = await findOrCreate(
+    () => prisma.clase.findFirst({ where: { nombre: "Acro Dance" } }),
+    () => prisma.clase.create({
+      data: {
+        nombre:     "Acro Dance",
+        estilo:     EstiloClase.ACRO,
+        nivel:      "Avanzado",
+        duracion:   90,
+        dias:       ["Viernes"],
+        horario:    "16:00",
+        cupo:       12,
+        salonId:    salonPrincipal.id,
+        profesorId: roberto.id,
+      },
+    })
+  );
 
   console.log("✅ Clases creadas");
 
   // ─────────────────────────────────────────────
-  // Alumnas
+  // Alumnas (findOrCreate por nombre + padreId)
   // ─────────────────────────────────────────────
 
-  const sofia = await prisma.alumna.upsert({
-    where: { id: "alumna-sofia" },
-    update: {},
-    create: {
-      id: "alumna-sofia",
-      nombre: "Sofía",
-      apellido: "Pérez",
-      fechaNacimiento: new Date("2016-03-15"),
-      estatus: EstatusAlumna.ACTIVA,
-      padreId: juan.id,
-    },
-  });
+  const sofia = await findOrCreate(
+    () => prisma.alumna.findFirst({ where: { nombre: "Sofía", padreId: juan.id } }),
+    () => prisma.alumna.create({
+      data: {
+        nombre:          "Sofía",
+        apellido:        "Pérez",
+        fechaNacimiento: new Date("2016-03-15"),
+        estatus:         EstatusAlumna.ACTIVA,
+        padreId:         juan.id,
+      },
+    })
+  );
 
-  const valentina = await prisma.alumna.upsert({
-    where: { id: "alumna-valentina" },
-    update: {},
-    create: {
-      id: "alumna-valentina",
-      nombre: "Valentina",
-      apellido: "Pérez",
-      fechaNacimiento: new Date("2018-07-22"),
-      estatus: EstatusAlumna.ACTIVA,
-      padreId: juan.id,
-    },
-  });
+  const valentina = await findOrCreate(
+    () => prisma.alumna.findFirst({ where: { nombre: "Valentina", padreId: juan.id } }),
+    () => prisma.alumna.create({
+      data: {
+        nombre:          "Valentina",
+        apellido:        "Pérez",
+        fechaNacimiento: new Date("2018-07-22"),
+        estatus:         EstatusAlumna.ACTIVA,
+        padreId:         juan.id,
+      },
+    })
+  );
 
-  const maria = await prisma.alumna.upsert({
-    where: { id: "alumna-maria" },
-    update: {},
-    create: {
-      id: "alumna-maria",
-      nombre: "María",
-      apellido: "López",
-      fechaNacimiento: new Date("2014-11-08"),
-      estatus: EstatusAlumna.ACTIVA,
-      padreId: ana.id,
-    },
-  });
+  const maria = await findOrCreate(
+    () => prisma.alumna.findFirst({ where: { nombre: "María", padreId: ana.id } }),
+    () => prisma.alumna.create({
+      data: {
+        nombre:          "María",
+        apellido:        "López",
+        fechaNacimiento: new Date("2014-11-08"),
+        estatus:         EstatusAlumna.ACTIVA,
+        padreId:         ana.id,
+      },
+    })
+  );
 
   console.log("✅ Alumnas creadas");
 
   // ─────────────────────────────────────────────
-  // Inscripciones (AlumnaClase)
+  // Inscripciones (upsert por clave compuesta — única)
   // ─────────────────────────────────────────────
 
   // Sofía → Ballet + Tap
   await prisma.alumnaClase.upsert({
-    where: { alumnaId_claseId: { alumnaId: sofia.id, claseId: clasesBallet.id } },
+    where:  { alumnaId_claseId: { alumnaId: sofia.id, claseId: clasesBallet.id } },
     update: {},
     create: { alumnaId: sofia.id, claseId: clasesBallet.id },
   });
   await prisma.alumnaClase.upsert({
-    where: { alumnaId_claseId: { alumnaId: sofia.id, claseId: claseTap.id } },
+    where:  { alumnaId_claseId: { alumnaId: sofia.id, claseId: claseTap.id } },
     update: {},
     create: { alumnaId: sofia.id, claseId: claseTap.id },
   });
 
   // Valentina → Ballet
   await prisma.alumnaClase.upsert({
-    where: { alumnaId_claseId: { alumnaId: valentina.id, claseId: clasesBallet.id } },
+    where:  { alumnaId_claseId: { alumnaId: valentina.id, claseId: clasesBallet.id } },
     update: {},
     create: { alumnaId: valentina.id, claseId: clasesBallet.id },
   });
 
   // María → Jazz + Acro
   await prisma.alumnaClase.upsert({
-    where: { alumnaId_claseId: { alumnaId: maria.id, claseId: claseJazz.id } },
+    where:  { alumnaId_claseId: { alumnaId: maria.id, claseId: claseJazz.id } },
     update: {},
     create: { alumnaId: maria.id, claseId: claseJazz.id },
   });
   await prisma.alumnaClase.upsert({
-    where: { alumnaId_claseId: { alumnaId: maria.id, claseId: claseAcro.id } },
+    where:  { alumnaId_claseId: { alumnaId: maria.id, claseId: claseAcro.id } },
     update: {},
     create: { alumnaId: maria.id, claseId: claseAcro.id },
   });
@@ -313,60 +321,60 @@ async function main() {
   console.log("✅ Inscripciones creadas");
 
   // ─────────────────────────────────────────────
-  // Paquetes
+  // Paquetes (findOrCreate por nombre)
   // ─────────────────────────────────────────────
 
-  await prisma.paquete.upsert({
-    where: { id: "paquete-basico" },
-    update: {},
-    create: {
-      id: "paquete-basico",
-      nombre: "Básico",
-      clasesPorSemana: 2,
-      precio: 800,
-      estilosIncluidos: ["BALLET", "HIPHOP", "TAP", "JAZZ", "ACRO"],
-    },
-  });
+  await findOrCreate(
+    () => prisma.paquete.findFirst({ where: { nombre: "Básico" } }),
+    () => prisma.paquete.create({
+      data: {
+        nombre:           "Básico",
+        clasesPorSemana:  2,
+        precio:           800,
+        estilosIncluidos: ["BALLET", "HIPHOP", "TAP", "JAZZ", "ACRO"],
+      },
+    })
+  );
 
-  await prisma.paquete.upsert({
-    where: { id: "paquete-intensivo" },
-    update: {},
-    create: {
-      id: "paquete-intensivo",
-      nombre: "Intensivo",
-      clasesPorSemana: 4,
-      precio: 1400,
-      estilosIncluidos: ["BALLET", "HIPHOP", "TAP", "JAZZ", "ACRO"],
-    },
-  });
+  await findOrCreate(
+    () => prisma.paquete.findFirst({ where: { nombre: "Intensivo" } }),
+    () => prisma.paquete.create({
+      data: {
+        nombre:           "Intensivo",
+        clasesPorSemana:  4,
+        precio:           1400,
+        estilosIncluidos: ["BALLET", "HIPHOP", "TAP", "JAZZ", "ACRO"],
+      },
+    })
+  );
 
   console.log("✅ Paquetes creados");
 
   // ─────────────────────────────────────────────
-  // Configuración
+  // Configuración (upsert por clave — campo único)
   // ─────────────────────────────────────────────
 
   const configs = [
     {
-      clave: "umbral_faltas",
-      valor: "3",
+      clave:       "umbral_faltas",
+      valor:       "3",
       descripcion: "Número de faltas consecutivas antes de notificar al padre",
     },
     {
-      clave: "minutos_checkin",
-      valor: "10",
+      clave:       "minutos_checkin",
+      valor:       "10",
       descripcion: "Minutos máximos para que el maestro inicie la clase antes de marcar retraso",
     },
     {
-      clave: "dia_corte_global",
-      valor: "1",
+      clave:       "dia_corte_global",
+      valor:       "1",
       descripcion: "Día del mes en que vence el pago mensual (global)",
     },
   ];
 
   for (const config of configs) {
     await prisma.configuracion.upsert({
-      where: { clave: config.clave },
+      where:  { clave: config.clave },
       update: { valor: config.valor },
       create: config,
     });
