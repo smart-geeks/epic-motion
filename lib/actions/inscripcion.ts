@@ -362,37 +362,47 @@ export async function inscribirAlumna(
         },
       });
 
-      // ── I. Crear Cargos y vincularlos al Pago ─────────────────────────────
-      await tx.cargo.createMany({
-        data: [
-          {
-            montoOriginal: cuotaInscripcion,
-            descuento: 0,
-            montoFinal: cuotaInscripcion,
-            fechaVencimiento: hoy,
-            fechaPago,
-            estado: estadoCargo,
-            notas: `Cuota inscripción — método: ${input.pago.metodoPago}`,
-            conceptoId: conceptoInscripcion.id,
-            alumnaId,
-            padreId,
-            pagoId: pago.id,
-          },
-          {
-            montoOriginal: precioMensualidad,
-            descuento: 0,
-            montoFinal: precioMensualidad,
-            fechaVencimiento: fechaVencimientoMensualidad,
-            fechaPago,
-            estado: estadoCargo,
-            notas: `Mensualidad ${grupo.nombre} — método: ${input.pago.metodoPago}`,
-            conceptoId: conceptoMensualidad.id,
-            alumnaId,
-            padreId,
-            pagoId: pago.id,
-          },
-        ],
+      // ── I. Crear Cargos (sin pagoId — la relación ahora va por AplicacionPago)
+      const cargoInscripcion = await tx.cargo.create({
+        data: {
+          montoOriginal:   cuotaInscripcion,
+          descuento:       0,
+          montoFinal:      cuotaInscripcion,
+          fechaVencimiento: hoy,
+          fechaPago,
+          estado:          estadoCargo,
+          notas:           `Cuota inscripción — método: ${input.pago.metodoPago}`,
+          conceptoId:      conceptoInscripcion.id,
+          alumnaId,
+          padreId,
+        },
       });
+
+      const cargoMensualidad = await tx.cargo.create({
+        data: {
+          montoOriginal:   precioMensualidad,
+          descuento:       0,
+          montoFinal:      precioMensualidad,
+          fechaVencimiento: fechaVencimientoMensualidad,
+          fechaPago,
+          estado:          estadoCargo,
+          notas:           `Mensualidad ${grupo.nombre} — método: ${input.pago.metodoPago}`,
+          conceptoId:      conceptoMensualidad.id,
+          alumnaId,
+          padreId,
+        },
+      });
+
+      // ── J. Vincular Pago ↔ Cargos mediante AplicacionPago.
+      //    El trigger fn_sincronizar_estado_cargo actualiza Cargo.estado automáticamente.
+      if (esPagadoInmediato) {
+        await tx.aplicacionPago.createMany({
+          data: [
+            { pagoId: pago.id, cargoId: cargoInscripcion.id, montoAplicado: cuotaInscripcion },
+            { pagoId: pago.id, cargoId: cargoMensualidad.id, montoAplicado: precioMensualidad },
+          ],
+        });
+      }
 
       return { alumnaId, padreId, emailPadre };
     });

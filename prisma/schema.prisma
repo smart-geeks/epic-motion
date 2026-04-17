@@ -103,6 +103,13 @@ enum EstadoClasePrivada {
   CANCELADA
 }
 
+enum MotivoUniforme {
+  SIN_PLAYERA
+  SIN_ZAPATILLAS
+  PEINADO_INCORRECTO
+  OTRO
+}
+
 // ─────────────────────────────────────────────
 // Modelos
 // ─────────────────────────────────────────────
@@ -138,6 +145,7 @@ model Usuario {
   sesionesComoProfesor Sesion[]         @relation("ProfesorSesiones")
   clasesComoProfesor   Clase[]          @relation("ProfesorClases")
   notasComoMaestro     Nota[]           @relation("MaestroNotas")
+  notasAprobadas       Nota[]           @relation("AdminAprobadorNotas")
   gruposComoProfesor   Grupo[]          @relation("ProfesorGrupos")
 }
 
@@ -158,6 +166,7 @@ model Alumna {
   otraAcademia         String?  // nombre de academia anterior; null si ninguna
   enfermedadLesion     String?  // descripción; null si ninguna
   canalContacto        String?  // "WHATSAPP" | "EMAIL" | "TELEFONO"
+  diaCobro             Int?     // día del mes (1-31) en que el cron genera la mensualidad
 
   // Relación con padre
   padreId String  @db.Uuid
@@ -224,6 +233,7 @@ model Grupo {
   disciplinas AlumnaClase[]     // alumnas inscritas en este grupo
   tarifa      TarifaMensualidad?
   disciplinasGrupo GrupoDisciplina[]
+  cargos      Cargo[]           // cargos generados por el cron para este grupo
 }
 
 // Tabla pivot Grupo ↔ Disciplina
@@ -306,9 +316,10 @@ model Sesion {
 model Asistencia {
   id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   estado         EstadoAsistencia
-  uniforme       Boolean          @default(true)
-  uniformeMotivo String[]         // zapato, tocado, tutu
-  createdAt      DateTime         @default(now())
+  uniforme                   Boolean           @default(true)
+  motivosUniforme            MotivoUniforme[]
+  observacionComportamiento  String?           @db.Text
+  createdAt                  DateTime          @default(now())
 
   sesionId String @db.Uuid
   sesion   Sesion @relation(fields: [sesionId], references: [id])
@@ -319,14 +330,17 @@ model Asistencia {
 }
 
 model Pago {
-  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  importe          Decimal  @db.Decimal(10, 2)
-  concepto         String
-  fechaVencimiento DateTime
-  fechaPago        DateTime?
-  estado           EstadoPago @default(PENDIENTE)
-  comprobanteUrl   String?
-  tipo             TipoPago
+  id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importe             Decimal    @db.Decimal(10, 2)
+  concepto            String
+  fechaVencimiento    DateTime
+  fechaPago           DateTime?
+  estado              EstadoPago @default(PENDIENTE)
+  comprobanteUrl      String?
+  tipo                TipoPago
+  // Idempotencia: Stripe Checkout Session ID o número de rastreo bancario.
+  // El índice UNIQUE bloquea a nivel de BD cualquier intento de cobrar el mismo ticket dos veces.
+  referenciaExternaId String?    @unique
 
   alumnaId String  @db.Uuid
   alumna   Alumna  @relation(fields: [alumnaId], references: [id])
@@ -334,8 +348,8 @@ model Pago {
   padre    Usuario @relation("PadrePagos", fields: [padreId], references: [id])
 
   // Relaciones
-  clasesPrivadas ClasePrivada[] @relation("PrepagoClasePrivada")
-  cargos         Cargo[]        @relation("CargoPago")
+  clasesPrivadas ClasePrivada[]   @relation("PrepagoClasePrivada")
+  aplicaciones   AplicacionPago[]
 }
 
 model Profesor {
@@ -406,7 +420,8 @@ model Nota {
   contenido   String
   estado      EstadoNota @default(BORRADOR)
   fecha       DateTime   @default(now())
-  aprobadaPor String?    @db.Uuid // ID del admin que aprobó (ref. informal, sin FK)
+  aprobadaPor   String?  @db.Uuid
+  adminAprobador Usuario? @relation("AdminAprobadorNotas", fields: [aprobadaPor], references: [id], onDelete: SetNull)
 
   alumnaId  String  @db.Uuid
   alumna    Alumna  @relation(fields: [alumnaId], references: [id])
@@ -520,10 +535,32 @@ model Cargo {
   padreId String  @db.Uuid
   padre   Usuario @relation("PadreCargos", fields: [padreId], references: [id])
 
-  // Pago que liquidó este cargo (null = aún pendiente)
-  // Un Pago puede liquidar N Cargos (ej. mensualidad + uniforme en una sola transacción)
-  pagoId String? @db.Uuid
-  pago   Pago?   @relation("CargoPago", fields: [pagoId], references: [id])
+  // Grupo al que corresponde este cargo (trazabilidad + idempotencia del cron)
+  grupoId String? @db.Uuid
+  grupo   Grupo?  @relation(fields: [grupoId], references: [id])
+
+  // Pagos que cubren (parcial o totalmente) este cargo
+  aplicaciones AplicacionPago[]
+}
+
+// ─────────────────────────────────────────────
+// Tabla pivote para pagos parciales
+// ─────────────────────────────────────────────
+
+// Registra cuánto de un Pago se aplicó a un Cargo específico.
+// Permite pagos parciales (un Cargo cubierto por varios Pagos) y
+// pagos en bloque (un Pago que cubre varios Cargos a la vez).
+model AplicacionPago {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  montoAplicado  Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  cargoId String @db.Uuid
+  cargo   Cargo  @relation(fields: [cargoId], references: [id])
+  pagoId  String @db.Uuid
+  pago    Pago   @relation(fields: [pagoId], references: [id])
+
+  @@unique([cargoId, pagoId])
 }
 
 model Configuracion {
