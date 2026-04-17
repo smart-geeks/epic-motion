@@ -14,10 +14,14 @@ export default function Paso3Confirmacion() {
   const router = useRouter();
   const [copiado, setCopiado] = useState(false);
 
-  if (!resultado) return null;
+  // Usar optional chaining: resultado puede llegar null brevemente por el orden de los set()
+  // del store. El paso 3 siempre muestra el mensaje de éxito.
+  const emailPadre       = resultado?.emailPadre       ?? '';
+  const passwordTemporal = resultado?.passwordTemporal ?? '';
+  const mostrarCredenciales = !esReinscripcion && !!passwordTemporal;
 
   const copiarCredenciales = async () => {
-    const texto = `Email: ${resultado.emailPadre}\nContraseña: ${resultado.passwordTemporal}`;
+    const texto = `Email: ${emailPadre}\nContraseña: ${passwordTemporal}`;
     await navigator.clipboard.writeText(texto);
     setCopiado(true);
     toast.success('Credenciales copiadas al portapapeles');
@@ -84,7 +88,7 @@ export default function Paso3Confirmacion() {
       </div>
 
       {/* ── Credenciales de acceso (solo nueva inscripción) ───────────── */}
-      {!esReinscripcion && resultado.passwordTemporal && (
+      {mostrarCredenciales && (
         <div className="rounded-sm border border-epic-gold/30 bg-epic-gold/5 p-5 space-y-3">
           <div className="flex items-center gap-2">
             <UserPlus size={15} className="text-epic-gold shrink-0" />
@@ -97,13 +101,13 @@ export default function Paso3Confirmacion() {
             <div className="flex items-center justify-between gap-2">
               <span className="font-inter text-xs text-gray-500 dark:text-epic-silver">Email</span>
               <span className="font-inter text-sm font-medium text-epic-black dark:text-white">
-                {resultado.emailPadre}
+                {emailPadre}
               </span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <span className="font-inter text-xs text-gray-500 dark:text-epic-silver">Contraseña</span>
               <span className="font-mono text-sm font-bold text-epic-gold tracking-widest">
-                {resultado.passwordTemporal}
+                {passwordTemporal}
               </span>
             </div>
           </div>
@@ -131,12 +135,19 @@ export default function Paso3Confirmacion() {
           variante="secondary"
           tamano="lg"
           fullWidth
-          onClick={() => router.push('/admin/inscripciones')}
+          onClick={nueva}
         >
-          Ver listado
-        </Button>
-        <Button tamano="lg" fullWidth onClick={nueva}>
           Nueva inscripción
+        </Button>
+        <Button 
+          tamano="lg" 
+          fullWidth 
+          onClick={() => {
+            resetWizard();
+            router.push('/admin/alumnas');
+          }}
+        >
+          Finalizar
         </Button>
       </div>
     </div>

@@ -28,11 +28,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           className={[
             'w-full font-inter text-sm px-3.5 py-2.5',
-            'bg-gray-50 dark:bg-white/5',
-            'border border-gray-200 dark:border-white/10',
+            'bg-transparent dark:bg-black/40',
+            'border border-gray-200 dark:border-white/20',
             'text-epic-black dark:text-white',
-            'placeholder-gray-400 dark:placeholder-white/20',
-            'focus:outline-none focus:border-epic-gold dark:focus:border-epic-gold',
+            'placeholder:text-gray-400 dark:placeholder:text-white/40',
+            'focus:outline-none focus:border-epic-gold focus:ring-1 focus:ring-epic-gold/40',
             'transition-colors rounded-sm',
             error ? 'border-red-400 dark:border-red-500' : '',
             props.disabled ? 'opacity-50 cursor-not-allowed' : '',

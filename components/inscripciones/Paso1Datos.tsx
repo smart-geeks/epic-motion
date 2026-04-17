@@ -121,7 +121,7 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
     <div className="space-y-8">
 
       {/* ── Búsqueda de reinscripción ─────────────────────────────────── */}
-      <div className="p-4 rounded-sm bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/8">
+      <div className="p-4 rounded-sm bg-transparent dark:bg-black/40 border border-gray-200 dark:border-white/10">
         <p className="font-inter text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-epic-silver mb-3">
           ¿Es reinscripción?
         </p>
@@ -150,7 +150,7 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
               onChange={(e) => setBusqueda(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && buscarAlumna()}
               placeholder="Buscar alumna por nombre..."
-              className="flex-1 font-inter text-sm px-3.5 py-2.5 bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 text-epic-black dark:text-white placeholder-gray-400 dark:placeholder-white/20 focus:outline-none focus:border-epic-gold rounded-sm transition-colors"
+              className="flex-1 font-inter text-sm px-3.5 py-2.5 bg-transparent dark:bg-black/40 border border-gray-200 dark:border-white/20 text-epic-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 focus:outline-none focus:border-epic-gold focus:ring-1 focus:ring-epic-gold/40 rounded-sm transition-colors"
             />
             <Button
               type="button"
@@ -459,7 +459,7 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
       </section>
 
       {/* ── Términos y condiciones ────────────────────────────────────── */}
-      <div className="p-4 rounded-sm bg-gray-50 dark:bg-white/3 border border-gray-200 dark:border-white/8">
+      <div className="p-4 rounded-sm bg-transparent dark:bg-black/40 border border-gray-200 dark:border-white/10">
         <Checkbox
           id="terminos"
           checked={infoGeneral.aceptaTerminos}

@@ -63,7 +63,7 @@ export default function Paso2POS() {
         alumnaId: data.alumnaId,
         padreId: data.padreId,
         emailPadre: data.emailPadre,
-        passwordTemporal: data.passwordTemporal,
+        passwordTemporal: data.passwordTemporal ?? '',
       });
       setPaso(3);
     } catch (e: unknown) {
