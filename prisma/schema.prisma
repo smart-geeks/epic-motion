@@ -188,19 +188,21 @@ model Alumna {
   enfermedadLesion     String?  // descripción; null si ninguna
   canalContacto        String?  // "WHATSAPP" | "EMAIL" | "TELEFONO"
   diaCobro             Int?     // día del mes (1-31) en que el cron genera la mensualidad
+  invitadaCompetencia  Boolean  @default(false) // marcador para invitar a competencia
 
   // Relación con padre
   padreId String  @db.Uuid
   padre   Usuario @relation("PadreAlumnas", fields: [padreId], references: [id])
 
   // Relaciones
-  clases         AlumnaClase[]
-  asistencias    Asistencia[]
-  pagos          Pago[]
-  cargos         Cargo[]
-  notas          Nota[]
-  logros         Logro[]
-  clasesPrivadas ClasePrivada[]
+  clases              AlumnaClase[]
+  asistencias         Asistencia[]
+  pagos               Pago[]
+  cargos              Cargo[]
+  notas               Nota[]
+  logros              Logro[]
+  clasesPrivadas      ClasePrivada[]
+  disciplinasInscritas AlumnaDisciplina[]
 }
 
 model Salon {
@@ -228,7 +230,8 @@ model Disciplina {
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  grupos GrupoDisciplina[]
+  grupos   GrupoDisciplina[]
+  alumnas  AlumnaDisciplina[]
 }
 
 // Grupo: unidad comercial de inscripción (SENIOR FULL, TINY FULL, etc.)
@@ -250,15 +253,21 @@ model Grupo {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+  // Promoción automática al 1 de julio: alumnas de este grupo pasan al siguiente
+  idGrupoSiguiente String? @db.Uuid
+  grupoSiguiente   Grupo?  @relation("GrupoPromocion", fields: [idGrupoSiguiente], references: [id])
+  gruposAnteriores Grupo[] @relation("GrupoPromocion")
+
   salonId    String?  @db.Uuid
   salon      Salon?   @relation(fields: [salonId], references: [id])
   profesorId String?  @db.Uuid
   profesor   Usuario? @relation("ProfesorGrupos", fields: [profesorId], references: [id])
 
-  disciplinas AlumnaClase[]     // alumnas inscritas en este grupo
-  tarifa      TarifaMensualidad?
-  disciplinasGrupo GrupoDisciplina[]
-  cargos      Cargo[]           // cargos generados por el cron para este grupo
+  disciplinas       AlumnaClase[]      // alumnas inscritas en este grupo
+  tarifa            TarifaMensualidad?
+  disciplinasGrupo  GrupoDisciplina[]
+  cargos            Cargo[]            // cargos generados por el cron para este grupo
+  alumnasDisciplinas AlumnaDisciplina[]
 }
 
 // Tabla pivot Grupo ↔ Disciplina
@@ -276,6 +285,21 @@ model GrupoDisciplina {
   horaTexto       String   @default("") // "Lun y Mié 17:00–18:00" — para display en mini-ticket
 
   @@id([grupoId, disciplinaId])
+}
+
+// Tabla pivot Alumna ↔ Disciplina dentro de un Grupo
+// Permite configurar qué disciplinas específicas toma cada alumna dentro del grupo,
+// lo que determina su mensualidad proporcional.
+model AlumnaDisciplina {
+  alumnaId     String @db.Uuid
+  disciplinaId String @db.Uuid
+  grupoId      String @db.Uuid
+
+  alumna     Alumna     @relation(fields: [alumnaId], references: [id])
+  disciplina Disciplina @relation(fields: [disciplinaId], references: [id])
+  grupo      Grupo      @relation(fields: [grupoId], references: [id])
+
+  @@id([alumnaId, disciplinaId, grupoId])
 }
 
 // Tarifa editable por el admin: 1 tarifa por grupo

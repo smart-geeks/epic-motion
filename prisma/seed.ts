@@ -459,6 +459,17 @@ async function main() {
   // ── HAPPY FEET (5–7 años) ──────────────────────────────────────────────────
   // Horarios por disciplina: Hip-Hop L+X 16–17, Ballet L+X 17–18, Tap M+J 16–17, Jazz M+J 17–18, Acro S 10–12
 
+  const gHF1 = await prisma.grupo.upsert({
+    where:  { nombre: "HAPPY FEET 1 CLASE" },
+    update: { categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false, tier: TipoTierGrupo.T1,
+              edadMin: 5, edadMax: 7, horasPorSemana: 2, dias: ["L","M","X","J"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "HAPPY FEET 1 CLASE", categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false,
+              tier: TipoTierGrupo.T1, edadMin: 5, edadMax: 7, horasPorSemana: 2,
+              dias: ["L","M","X","J"], horaInicio: "16:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
   const gHF2 = await prisma.grupo.upsert({
     where:  { nombre: "HAPPY FEET 2 CLASES" },
     update: { categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false, tier: TipoTierGrupo.T2,
@@ -512,6 +523,10 @@ async function main() {
     { disciplinaId: dAcro.id,   dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00" },
   ];
   for (const gd of gdHF) await upsertGrupoDisciplina(gHFFull.id, gd);
+  for (const gd of gdHF) await upsertGrupoDisciplina(gHF1.id, gd);
+  for (const gd of gdHF) await upsertGrupoDisciplina(gHF2.id, gd);
+  for (const gd of gdHF) await upsertGrupoDisciplina(gHF3.id, gd);
+  for (const gd of gdHF) await upsertGrupoDisciplina(gHF4.id, gd);
 
   // ── EPIC ONE (8–12 años) ───────────────────────────────────────────────────
   // Horarios: Tap L+X 17–18, Hip-Hop L+X 18–19, Jazz M+J 16–17, Ballet M+J 17–18, Acro S 10–12
@@ -579,28 +594,69 @@ async function main() {
     { disciplinaId: dAcro.id,   dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00" },
   ];
   for (const gd of gdEO) await upsertGrupoDisciplina(gEOFull.id, gd);
+  for (const gd of gdEO) await upsertGrupoDisciplina(gEO1.id, gd);
+  for (const gd of gdEO) await upsertGrupoDisciplina(gEO2.id, gd);
+  for (const gd of gdEO) await upsertGrupoDisciplina(gEO3.id, gd);
+  for (const gd of gdEO) await upsertGrupoDisciplina(gEO4.id, gd);
 
   // ── TEEN (12–17 años) ──────────────────────────────────────────────────────
   // Horarios: Tap L+X 19–20, Hip-Hop L+X 20–21, Ballet M+J 18–19, Jazz M+J 19–20:30, Contempo S 10–11, Conditioning S 11–12
 
+  // Renombrar grupos legados (si existen con nomenclatura "DÍAS")
+  await prisma.grupo.updateMany({ where: { nombre: "TEEN 2 DÍAS" }, data: { nombre: "TEEN 2 CLASES" } });
+  await prisma.grupo.updateMany({ where: { nombre: "TEEN 4 DÍAS" }, data: { nombre: "TEEN 4 CLASES" } });
+
+  const gTeen1 = await prisma.grupo.upsert({
+    where:  { nombre: "TEEN 1 CLASE" },
+    update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T1,
+              edadMin: 12, edadMax: 17, horasPorSemana: 2, dias: ["L","X"],
+              horaInicio: "19:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "TEEN 1 CLASE", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+              tier: TipoTierGrupo.T1, edadMin: 12, edadMax: 17, horasPorSemana: 2,
+              dias: ["L","X"], horaInicio: "19:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
   const gTeen2 = await prisma.grupo.upsert({
-    where:  { nombre: "TEEN 2 DÍAS" },
+    where:  { nombre: "TEEN 2 CLASES" },
     update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T2,
               edadMin: 12, edadMax: 17, horasPorSemana: 4, dias: ["L","X"],
               horaInicio: "19:00", duracionMinutos: 60, cupo: 15 },
-    create: { nombre: "TEEN 2 DÍAS", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+    create: { nombre: "TEEN 2 CLASES", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
               tier: TipoTierGrupo.T2, edadMin: 12, edadMax: 17, horasPorSemana: 4,
               dias: ["L","X"], horaInicio: "19:00", duracionMinutos: 60, cupo: 15,
               salonId: salonB.id },
   });
 
+  const gTeen3 = await prisma.grupo.upsert({
+    where:  { nombre: "TEEN 3 CLASES" },
+    update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T3,
+              edadMin: 12, edadMax: 17, horasPorSemana: 6, dias: ["L","M","X","J"],
+              horaInicio: "18:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "TEEN 3 CLASES", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+              tier: TipoTierGrupo.T3, edadMin: 12, edadMax: 17, horasPorSemana: 6,
+              dias: ["L","M","X","J"], horaInicio: "18:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
   const gTeen4 = await prisma.grupo.upsert({
-    where:  { nombre: "TEEN 4 DÍAS" },
+    where:  { nombre: "TEEN 4 CLASES" },
     update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T4,
               edadMin: 12, edadMax: 17, horasPorSemana: 8, dias: ["L","M","X","J"],
               horaInicio: "18:00", duracionMinutos: 60, cupo: 15 },
-    create: { nombre: "TEEN 4 DÍAS", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+    create: { nombre: "TEEN 4 CLASES", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
               tier: TipoTierGrupo.T4, edadMin: 12, edadMax: 17, horasPorSemana: 8,
+              dias: ["L","M","X","J"], horaInicio: "18:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  const gTeen5 = await prisma.grupo.upsert({
+    where:  { nombre: "TEEN 5 CLASES" },
+    update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T4,
+              edadMin: 12, edadMax: 17, horasPorSemana: 10, dias: ["L","M","X","J"],
+              horaInicio: "18:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "TEEN 5 CLASES", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+              tier: TipoTierGrupo.T4, edadMin: 12, edadMax: 17, horasPorSemana: 10,
               dias: ["L","M","X","J"], horaInicio: "18:00", duracionMinutos: 60, cupo: 15,
               salonId: salonPrincipal.id },
   });
@@ -623,6 +679,11 @@ async function main() {
     { disciplinaId: dContempo.id,     dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00"        },
   ];
   for (const gd of gdTeen) await upsertGrupoDisciplina(gTeenFull.id, gd);
+  for (const gd of gdTeen) await upsertGrupoDisciplina(gTeen1.id, gd);
+  for (const gd of gdTeen) await upsertGrupoDisciplina(gTeen2.id, gd);
+  for (const gd of gdTeen) await upsertGrupoDisciplina(gTeen3.id, gd);
+  for (const gd of gdTeen) await upsertGrupoDisciplina(gTeen4.id, gd);
+  for (const gd of gdTeen) await upsertGrupoDisciplina(gTeen5.id, gd);
 
   console.log("✅ Grupos regulares creados (EPIC TOTZ, HAPPY FEET, EPIC ONE, TEEN)");
 
@@ -726,6 +787,7 @@ async function main() {
   const tarifas: Array<{ grupoId: string; mensualidad: number; preseason: number; horas: number }> = [
     // Regulares
     { grupoId: gTotzBase.id, mensualidad: 700,  preseason: 500, horas: 2   },
+    { grupoId: gHF1.id,      mensualidad: 650,  preseason: 500, horas: 2   },
     { grupoId: gHF2.id,      mensualidad: 750,  preseason: 500, horas: 4   },
     { grupoId: gHF3.id,      mensualidad: 900,  preseason: 500, horas: 6   },
     { grupoId: gHF4.id,      mensualidad: 1000, preseason: 500, horas: 8   },
@@ -735,8 +797,11 @@ async function main() {
     { grupoId: gEO3.id,      mensualidad: 1050, preseason: 500, horas: 6   },
     { grupoId: gEO4.id,      mensualidad: 1200, preseason: 500, horas: 8   },
     { grupoId: gEOFull.id,   mensualidad: 1400, preseason: 500, horas: 10  },
+    { grupoId: gTeen1.id,    mensualidad: 750,  preseason: 500, horas: 2   },
     { grupoId: gTeen2.id,    mensualidad: 900,  preseason: 500, horas: 4   },
+    { grupoId: gTeen3.id,    mensualidad: 1050, preseason: 500, horas: 6   },
     { grupoId: gTeen4.id,    mensualidad: 1200, preseason: 500, horas: 8   },
+    { grupoId: gTeen5.id,    mensualidad: 1350, preseason: 500, horas: 10  },
     { grupoId: gTeenFull.id, mensualidad: 1500, preseason: 500, horas: 10  },
     // Competición
     { grupoId: gTiny.id,     mensualidad: 1500, preseason: 500, horas: 10  },
@@ -768,7 +833,7 @@ async function main() {
   console.log("  Padre      → juan@epicmotion.com      / padre123");
   console.log("  Padre      → ana@epicmotion.com       / padre123");
   console.log("─────────────────────────────────────────────");
-  console.log("Grupos regulares: EPIC TOTZ · HAPPY FEET ×4 · EPIC ONE ×5 · TEEN ×3");
+  console.log("Grupos regulares: EPIC TOTZ · HAPPY FEET ×5 · EPIC ONE ×5 · TEEN ×6");
   console.log("Grupos competición: TINY FULL · MINIS FULL · JUNIOR FULL · SENIOR FULL");
   console.log("─────────────────────────────────────────────");
 }

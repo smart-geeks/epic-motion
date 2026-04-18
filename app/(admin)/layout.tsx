@@ -21,20 +21,24 @@ import {
   Menu,
   X,
   ChevronRight,
+  ShoppingCart,
+  UserSquare,
 } from "lucide-react";
 
 const NAV_LINKS = [
-  { href: "/admin/dashboard",      label: "Dashboard",      icon: LayoutDashboard },
-  { href: "/admin/usuarios",       label: "Usuarios",       icon: Users },
-  { href: "/admin/alumnas",        label: "Alumnas",        icon: GraduationCap },
-  { href: "/admin/grupos",         label: "Grupos",         icon: CalendarDays },
-  { href: "/admin/inscripciones",  label: "Inscripciones",  icon: ClipboardList },
-  { href: "/admin/cobranza",       label: "Cobranza",       icon: CreditCard },
-  { href: "/admin/nomina",         label: "Nómina",         icon: Banknote },
-  { href: "/admin/noticias",       label: "Noticias",       icon: Newspaper },
-  { href: "/admin/eventos",        label: "Eventos",        icon: Trophy },
-  { href: "/admin/configuracion",  label: "Configuración",  icon: Settings },
-  { href: "/admin/reportes",       label: "Reportes",       icon: BarChart3 },
+  { href: "/admin/dashboard",       label: "Dashboard",        icon: LayoutDashboard },
+  { href: "/admin/usuarios",        label: "Usuarios",         icon: Users },
+  { href: "/admin/alumnas",         label: "Alumnas",          icon: GraduationCap },
+  { href: "/admin/grupos",          label: "Grupos",           icon: CalendarDays },
+  { href: "/admin/inscripciones",   label: "Inscripciones",    icon: ClipboardList },
+  { href: "/admin/cobranza",        label: "Cobranza",         icon: CreditCard },
+  { href: "/admin/punto-de-venta",  label: "Punto de Venta",   icon: ShoppingCart },
+  { href: "/admin/profesores",      label: "Profesores",       icon: UserSquare },
+  { href: "/admin/nomina",          label: "Nómina",           icon: Banknote },
+  { href: "/admin/noticias",        label: "Noticias",         icon: Newspaper },
+  { href: "/admin/eventos",         label: "Eventos",          icon: Trophy },
+  { href: "/admin/configuracion",   label: "Configuración",    icon: Settings },
+  { href: "/admin/reportes",        label: "Reportes",         icon: BarChart3 },
 ];
 
 interface AdminLayoutProps {
