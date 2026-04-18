@@ -3,15 +3,7 @@
 import { useRef, useState } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Check } from 'lucide-react';
-
-const beneficios = [
-  'Instructores certificados con formación internacional',
-  'Instalaciones de primer nivel con piso profesional',
-  'Metodología probada y adaptada a cada edad',
-  'Grupos reducidos para atención personalizada',
-  'Presentaciones regulares en escenario real',
-  'Ambiente seguro, disciplinado y motivador',
-];
+import { WA_CTA_URL, BENEFICIOS_ACADEMIA } from '@/lib/constants';
 
 export default function Nosotros() {
   const ref = useRef(null);
@@ -51,7 +43,7 @@ export default function Nosotros() {
 
         {/* Lista de beneficios — centrada */}
         <ul className="flex flex-col items-center gap-4 mb-12">
-          {beneficios.map((b, i) => (
+          {BENEFICIOS_ACADEMIA.map((b, i) => (
             <motion.li
               key={b}
               initial={{ opacity: 0, y: 10 }}
@@ -75,7 +67,7 @@ export default function Nosotros() {
           className="flex justify-center"
         >
           <motion.a
-            href="https://wa.me/528712044277?text=Hola%20Epic%20Motion%2C%20quiero%20agendar%20una%20clase%20de%20prueba"
+            href={WA_CTA_URL}
             target="_blank"
             rel="noopener noreferrer"
             onHoverStart={() => setBtnHovered(true)}

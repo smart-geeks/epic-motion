@@ -4,27 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Clock, Package, Users, Zap } from 'lucide-react';
 import type { GrupoCard } from '@/types/inscripciones';
 
-// Categorías reconocidas por el wizard (academia regular, sin competición)
-type CategoriaWizard = 'EPIC TOTZ' | 'HAPPY FEET' | 'EPIC ONE' | 'TEEN';
-
-// Mapeo de nombre de categoría → enum de BD
-const CATEGORIA_ENUM: Record<CategoriaWizard, string> = {
-  'EPIC TOTZ': 'EPIC_TOTZ',
-  'HAPPY FEET': 'HAPPY_FEET',
-  'EPIC ONE':  'EPIC_ONE',
-  'TEEN':      'TEEN',
-};
-
-// Tier según número de disciplinas seleccionadas
-function tierForCount(count: number, total: number): string {
-  if (count >= total) return 'FULL';
-  if (count === 1) return 'T1';
-  if (count === 2) return 'T2';
-  if (count === 3) return 'T3';
-  if (count === 4) return 'T4';
-  return 'T1';
-}
-
 // Edad al 1° de agosto del ciclo activo (Ago–Jul del año académico)
 export function calcularEdadCiclo(fechaISO: string): number | null {
   if (!fechaISO) return null;
@@ -39,12 +18,32 @@ export function calcularEdadCiclo(fechaISO: string): number | null {
   return edad;
 }
 
-function categoriaPorEdad(edad: number): CategoriaWizard | null {
-  if (edad >= 2  && edad <= 4)  return 'EPIC TOTZ';
-  if (edad >= 5  && edad <= 7)  return 'HAPPY FEET';
-  if (edad >= 8  && edad <= 11) return 'EPIC ONE';
-  if (edad >= 12 && edad <= 17) return 'TEEN';
-  return null;
+// Derive la categoría desde los grupos cargados en la BD (edadMin / edadMax)
+// Elimina la necesidad de rangos hardcodeados en el frontend.
+function getCategoriaDesdeGrupos(edad: number, grupos: GrupoCard[]): string | null {
+  const match = grupos.find(
+    (g) =>
+      !g.esCompetitivo &&
+      (g.tier === 'FULL' || g.tier === 'BASE') &&
+      edad >= g.edadMin &&
+      edad <= g.edadMax,
+  );
+  return match?.categoria ?? null;
+}
+
+// Tier según número de disciplinas seleccionadas (convención directa del catálogo)
+function tierForCount(count: number, total: number): string {
+  if (count >= total) return 'FULL';
+  if (count === 1) return 'T1';
+  if (count === 2) return 'T2';
+  if (count === 3) return 'T3';
+  if (count === 4) return 'T4';
+  return 'T1';
+}
+
+// Formatea el valor del enum de BD a nombre de display ("EPIC_TOTZ" → "EPIC TOTZ")
+function formatCategoria(categoria: string): string {
+  return categoria.replace(/_/g, ' ');
 }
 
 const FMT_MXN = new Intl.NumberFormat('es-MX', {
@@ -70,61 +69,54 @@ export default function ArmadorClases({
   cicloEscolar,
   error,
 }: ArmadorClasesProps) {
-  // IDs de disciplinas seleccionadas (UUIDs de la BD)
   const [seleccionadas, setSeleccionadas] = useState<string[]>([]);
 
-  // Solo grupos del academy regular (excluye competición)
   const gruposRegulares = useMemo(
     () => grupos.filter((g) => !g.esCompetitivo),
-    [grupos]
+    [grupos],
   );
 
   const edadCiclo = useMemo(() => calcularEdadCiclo(fechaNacimiento), [fechaNacimiento]);
-  const categoria = edadCiclo !== null ? categoriaPorEdad(edadCiclo) : null;
+  const categoria = useMemo(
+    () => (edadCiclo !== null ? getCategoriaDesdeGrupos(edadCiclo, gruposRegulares) : null),
+    [edadCiclo, gruposRegulares],
+  );
 
-  // Limpiar selección al cambiar de categoría (nueva fecha de nacimiento)
   useEffect(() => {
     setSeleccionadas([]);
   }, [categoria]);
 
-  // Grupo FULL (o BASE) de la categoría → fuente de disciplinas y horarios
+  // Grupo FULL (o BASE) de la categoría → fuente de disciplinas disponibles
   const grupoFull = useMemo((): GrupoCard | null => {
     if (!categoria) return null;
-    const catEnum = CATEGORIA_ENUM[categoria];
     return (
       gruposRegulares.find(
-        (g) => g.categoria === catEnum && (g.tier === 'FULL' || g.tier === 'BASE')
+        (g) => g.categoria === categoria && (g.tier === 'FULL' || g.tier === 'BASE'),
       ) ?? null
     );
   }, [gruposRegulares, categoria]);
 
-  // Disciplinas disponibles para la categoría (vienen de la BD)
   const disciplinasDisponibles = useMemo(
     () => grupoFull?.disciplinas ?? [],
-    [grupoFull]
+    [grupoFull],
   );
 
-  // Grupo que coincide con la selección actual
   const grupoMatch = useMemo((): GrupoCard | null => {
     if (edadCiclo === null || !categoria) return null;
-    const catEnum = CATEGORIA_ENUM[categoria];
 
-    // EPIC TOTZ: paquete único, auto-match inmediato
-    if (categoria === 'EPIC TOTZ') {
-      return (
-        gruposRegulares.find((g) => g.categoria === catEnum && g.tier === 'BASE') ?? null
-      );
+    // BASE (ej. EPIC TOTZ): paquete único, auto-match inmediato
+    if (grupoFull?.tier === 'BASE') {
+      return grupoFull;
     }
 
     if (seleccionadas.length === 0) return null;
 
     const tier = tierForCount(seleccionadas.length, disciplinasDisponibles.length);
     return (
-      gruposRegulares.find((g) => g.categoria === catEnum && g.tier === tier) ?? null
+      gruposRegulares.find((g) => g.categoria === categoria && g.tier === tier) ?? null
     );
-  }, [gruposRegulares, edadCiclo, categoria, seleccionadas.length, disciplinasDisponibles.length]);
+  }, [gruposRegulares, edadCiclo, categoria, grupoFull, seleccionadas.length, disciplinasDisponibles.length]);
 
-  // Sincronizar match con el store (Zustand)
   useEffect(() => {
     if (grupoMatch) {
       if (grupoMatch.id !== grupoSeleccionadoId) onSelect(grupoMatch);
@@ -136,12 +128,14 @@ export default function ArmadorClases({
 
   const toggleDisciplina = (id: string) =>
     setSeleccionadas((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
     );
 
   const esMaximo =
     disciplinasDisponibles.length > 0 &&
     seleccionadas.length >= disciplinasDisponibles.length;
+
+  const esBase = grupoFull?.tier === 'BASE';
 
   // ── Sin fecha → placeholder ─────────────────────────────────────────────
   if (!fechaNacimiento) {
@@ -159,7 +153,7 @@ export default function ArmadorClases({
     return (
       <div className="rounded-sm border border-dashed border-amber-400/30 p-6 text-center">
         <p className="font-inter text-sm text-amber-500 dark:text-amber-400">
-          Edad de ciclo: {edadCiclo ?? '—'} años — fuera del rango Academia Regular (2–17 años).
+          Edad de ciclo: {edadCiclo ?? '—'} años — fuera del rango configurado en grupos activos.
         </p>
       </div>
     );
@@ -172,7 +166,7 @@ export default function ArmadorClases({
       <div className="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-sm bg-epic-gold/8 border border-epic-gold/30">
         <Zap size={13} className="text-epic-gold shrink-0" />
         <span className="font-montserrat font-bold text-xs tracking-[0.15em] uppercase text-epic-gold">
-          {categoria}
+          {formatCategoria(categoria)}
         </span>
         <span className="font-inter text-xs text-gray-500 dark:text-white/40 border-l border-epic-gold/20 pl-2.5">
           Edad de ciclo: <strong className="text-epic-gold">{edadCiclo}</strong> años
@@ -184,13 +178,13 @@ export default function ArmadorClases({
         )}
       </div>
 
-      {/* ── EPIC TOTZ: paquete base sin selección ─────────────────────── */}
-      {categoria === 'EPIC TOTZ' ? (
+      {/* ── BASE (ej. EPIC TOTZ): paquete único sin selección ─────────── */}
+      {esBase ? (
         <div className="flex items-start gap-3 p-3.5 rounded-sm bg-epic-gold/5 border border-epic-gold/20">
           <Package size={15} className="text-epic-gold shrink-0 mt-0.5" />
           <div>
             <p className="font-inter text-sm font-medium text-epic-black dark:text-white">
-              Paquete TOTZ incluido
+              Paquete {formatCategoria(categoria)} incluido
             </p>
           </div>
         </div>
@@ -199,7 +193,7 @@ export default function ArmadorClases({
         <div>
           {disciplinasDisponibles.length === 0 ? (
             <p className="font-inter text-xs text-amber-500 dark:text-amber-400">
-              No hay disciplinas configuradas para {categoria}. Crea el grupo FULL en Configuración → Grupos.
+              No hay disciplinas configuradas para {formatCategoria(categoria)}. Crea el grupo FULL en Configuración → Grupos.
             </p>
           ) : (
             <>
@@ -273,8 +267,7 @@ export default function ArmadorClases({
           </div>
 
           {/* Disciplinas con horarios */}
-          {categoria === 'EPIC TOTZ' ? (
-            /* EPIC TOTZ: sin detalle de disciplinas, solo horario */
+          {esBase ? (
             disciplinasDisponibles[0]?.horaTexto ? (
               <div className="flex items-center gap-1.5 font-inter text-xs text-gray-500 dark:text-white/50">
                 <Clock size={10} className="shrink-0" />
@@ -282,7 +275,6 @@ export default function ArmadorClases({
               </div>
             ) : null
           ) : (
-            /* Resto: mostrar las disciplinas seleccionadas con sus horarios */
             <div className="space-y-1.5">
               {seleccionadas.map((dId) => {
                 const disc = disciplinasDisponibles.find((d) => d.id === dId);
@@ -331,11 +323,11 @@ export default function ArmadorClases({
       )}
 
       {/* Sin match con disciplinas seleccionadas */}
-      {seleccionadas.length > 0 && !grupoMatch && categoria !== 'EPIC TOTZ' && (
+      {seleccionadas.length > 0 && !grupoMatch && !esBase && (
         <div className="rounded-sm border border-dashed border-amber-400/30 p-4 text-center">
           <p className="font-inter text-xs text-amber-500 dark:text-amber-400">
             No hay paquete configurado para {seleccionadas.length} disciplina
-            {seleccionadas.length !== 1 ? 's' : ''} en {categoria}.
+            {seleccionadas.length !== 1 ? 's' : ''} en {formatCategoria(categoria)}.
             Crea el grupo correspondiente en Configuración → Grupos.
           </p>
         </div>

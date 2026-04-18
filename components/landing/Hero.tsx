@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { WA_CTA_URL } from '@/lib/constants';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
@@ -168,7 +169,7 @@ export default function Hero() {
           className="mt-10"
         >
           <motion.a
-            href="https://wa.me/528712044277?text=Hola%20Epic%20Motion%2C%20quiero%20agendar%20una%20clase%20de%20prueba"
+            href={WA_CTA_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="relative inline-flex items-center overflow-hidden font-montserrat font-bold text-xs tracking-[0.12em] px-8 py-4 uppercase"

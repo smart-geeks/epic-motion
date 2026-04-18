@@ -34,30 +34,36 @@ export async function POST(request: Request) {
     }
 
     // ── Consultar datos ──────────────────────────────────────────
-    const alumna = await withRLS(session, (tx) =>
-      tx.alumna.findUnique({
-        where: { id: alumnaId },
-        include: {
-          padre: true,
-          clases: {
-            include: {
-              grupo: {
-                include: {
-                  disciplinasGrupo: { include: { disciplina: true } },
-                  tarifa: true,
+    const [alumna, pagoRecord] = await withRLS(session, (tx) =>
+      Promise.all([
+        tx.alumna.findUnique({
+          where: { id: alumnaId },
+          include: {
+            padre: true,
+            clases: {
+              include: {
+                grupo: {
+                  include: {
+                    disciplinasGrupo: { include: { disciplina: true } },
+                    tarifa: true,
+                  },
                 },
               },
+              orderBy: { fechaInscripcion: 'desc' },
+              take: 1,
             },
-            orderBy: { fechaInscripcion: 'desc' },
-            take: 1,
+            cargos: {
+              include: { concepto: true },
+              orderBy: { createdAt: 'desc' },
+              take: 2,
+            },
           },
-          cargos: {
-            include: { concepto: true },
-            orderBy: { createdAt: 'desc' },
-            take: 2,
-          },
-        },
-      })
+        }),
+        tx.pago.findFirst({
+          where: { alumnaId, tipo: 'INSCRIPCION' },
+          orderBy: { fechaVencimiento: 'desc' },
+        }),
+      ])
     );
 
     if (!alumna) {
@@ -80,7 +86,7 @@ export async function POST(request: Request) {
     const totalOriginal = cuotaInscripcion + precioMensualidad;
     const hayAjuste = Math.abs(montoAjustado - totalOriginal) > 0.01;
 
-    const metodoPago = 'EFECTIVO'; // no se almacena en Cargo, se muestra como default
+    const metodoPago = pagoRecord?.metodoPago ?? 'EFECTIVO';
     const motivoAjuste = cargoInsc?.motivoDescuento ?? cargoMens?.motivoDescuento ?? '';
 
     const cicloEscolar = calcularCicloEscolar();

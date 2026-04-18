@@ -110,6 +110,12 @@ enum MotivoUniforme {
   OTRO
 }
 
+enum MetodoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+}
+
 enum CategoriaGrupo {
   EPIC_TOTZ
   HAPPY_FEET
@@ -217,6 +223,7 @@ model Disciplina {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre      String   @unique
   descripcion String?
+  imagenUrl   String?  // URL de imagen para landing page (Supabase Storage o externa)
   color       String?  // hex para badges en UI, ej. "#F8BBD0"
   activo      Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -363,6 +370,7 @@ model Pago {
   estado              EstadoPago @default(PENDIENTE)
   comprobanteUrl      String?
   tipo                TipoPago
+  metodoPago          MetodoPago @default(EFECTIVO)
   // Idempotencia: Stripe Checkout Session ID o número de rastreo bancario.
   // El índice UNIQUE bloquea a nivel de BD cualquier intento de cobrar el mismo ticket dos veces.
   referenciaExternaId String?    @unique

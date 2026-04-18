@@ -7,7 +7,7 @@ import { authOptions } from "@/lib/auth";
 import { withRLS } from "@/lib/prisma-rls";
 import bcrypt from "bcryptjs";
 import type { InscripcionAPIResponse } from "@/types/inscripciones";
-import { EstadoCargo, EstadoPago, TipoPago, TipoConcepto } from "@/app/generated/prisma/client";
+import { EstadoCargo, EstadoPago, MetodoPago, TipoPago, TipoConcepto } from "@/app/generated/prisma/client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Validación Zod (UUIDs, no cuid — convención del proyecto)
@@ -367,6 +367,7 @@ export async function inscribirAlumna(
           fechaPago,
           estado: estadoPago,
           tipo: TipoPago.INSCRIPCION,
+          metodoPago: input.pago.metodoPago as MetodoPago,
           comprobanteUrl: input.pago.comprobanteUrl,
           alumnaId,
           padreId,
@@ -383,7 +384,7 @@ export async function inscribirAlumna(
           fechaVencimiento: hoy,
           fechaPago,
           estado:           estadoCargo,
-          notas:            `Cuota inscripción — método: ${input.pago.metodoPago}`,
+          notas:            null,
           conceptoId:       conceptoInscripcion.id,
           alumnaId,
           padreId,

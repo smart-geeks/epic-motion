@@ -1,33 +1,38 @@
-import { Users, CalendarCheck, CreditCard, UserCheck } from "lucide-react";
+import { Users, CalendarCheck, CreditCard, UserCheck } from 'lucide-react';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const CARDS = [
   {
-    label: "Total alumnas",
-    valor: "—",
+    label: 'Total alumnas',
+    valor: '—',
     icon: Users,
-    color: "dark:bg-blue-500/10 bg-blue-50 dark:text-blue-400 text-blue-600",
+    color: 'dark:bg-blue-500/10 bg-blue-50 dark:text-blue-400 text-blue-600',
   },
   {
-    label: "Clases hoy",
-    valor: "—",
+    label: 'Clases hoy',
+    valor: '—',
     icon: CalendarCheck,
-    color: "dark:bg-epic-gold/10 bg-yellow-50 dark:text-epic-gold text-yellow-600",
+    color: 'dark:bg-epic-gold/10 bg-yellow-50 dark:text-epic-gold text-yellow-600',
   },
   {
-    label: "Pagos pendientes",
-    valor: "—",
+    label: 'Pagos pendientes',
+    valor: '—',
     icon: CreditCard,
-    color: "dark:bg-red-500/10 bg-red-50 dark:text-red-400 text-red-600",
+    color: 'dark:bg-red-500/10 bg-red-50 dark:text-red-400 text-red-600',
   },
   {
-    label: "Maestros activos",
-    valor: "—",
+    label: 'Maestros activos',
+    valor: '—',
     icon: UserCheck,
-    color: "dark:bg-green-500/10 bg-green-50 dark:text-green-400 text-green-600",
+    color: 'dark:bg-green-500/10 bg-green-50 dark:text-green-400 text-green-600',
   },
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
+  const nombre = session?.user?.nombre ?? session?.user?.name ?? 'Admin';
+
   return (
     <div>
       {/* Encabezado */}
@@ -36,7 +41,7 @@ export default function DashboardPage() {
           Resumen del día
         </h1>
         <p className="mt-1 text-sm font-inter dark:text-epic-silver text-gray-500">
-          Bienvenida, Luz. Aquí tienes el resumen de hoy.
+          Bienvenida, {nombre}. Aquí tienes el resumen de hoy.
         </p>
       </div>
 
