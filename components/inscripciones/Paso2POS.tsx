@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ArrowLeft, Receipt } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Receipt } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import RadioGroup from '@/components/ui/RadioGroup';
 import Input from '@/components/ui/Input';
@@ -14,13 +14,15 @@ export default function Paso2POS() {
     alumna, tutor, infoGeneral,
     grupoSeleccionado, alumnaIdExistente,
     cuotaInscripcion, pago, setDatosPago,
-    setResultado, setPaso,
+    setResultado, setPaso, setPdfUrl,
   } = useWizardInscripcion();
 
   const [procesando, setProcesando] = useState(false);
+  const [editandoMonto, setEditandoMonto] = useState(false);
 
   const mensualidad = grupoSeleccionado?.tarifa?.precioMensualidad ?? 0;
   const total = cuotaInscripcion + mensualidad;
+  const totalFinal = pago.montoAjustado ?? total;
 
   const fmt = (n: number) =>
     new Intl.NumberFormat('es-MX', {
@@ -32,6 +34,11 @@ export default function Paso2POS() {
   const registrarPago = async () => {
     if (!grupoSeleccionado) {
       toast.error('No hay grupo seleccionado');
+      return;
+    }
+
+    if (pago.montoAjustado !== null && !pago.motivoAjuste.trim()) {
+      toast.error('Escribe el motivo del ajuste de precio');
       return;
     }
 
@@ -66,6 +73,20 @@ export default function Paso2POS() {
         passwordTemporal: data.passwordTemporal ?? '',
       });
       setPaso(3);
+
+      // Generar PDF en background — no bloquea la navegación al paso 3
+      fetch('/api/inscripciones/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alumnaId: data.alumnaId,
+          padreId: data.padreId,
+          passwordTemporal: data.passwordTemporal ?? '',
+        }),
+      })
+        .then((r) => r.json())
+        .then((pdfData) => { if (pdfData.ok) setPdfUrl(pdfData.pdfUrl); })
+        .catch(() => { /* PDF generation failure is non-blocking */ });
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Error de conexión');
     } finally {
@@ -125,13 +146,68 @@ export default function Paso2POS() {
           </div>
 
           {/* Total */}
-          <div className="border-t border-gray-200 dark:border-white/10 pt-3 flex items-center justify-between">
-            <span className="font-montserrat font-bold text-sm text-epic-black dark:text-white uppercase tracking-wide">
-              Total a cobrar
-            </span>
-            <span className="font-montserrat font-bold text-xl text-epic-gold">
-              {fmt(total)}
-            </span>
+          <div className="border-t border-gray-200 dark:border-white/10 pt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="font-montserrat font-bold text-sm text-epic-black dark:text-white uppercase tracking-wide">
+                  Total a cobrar
+                </span>
+                {!editandoMonto && (
+                  <button
+                    type="button"
+                    title="Ajustar monto"
+                    onClick={() => setEditandoMonto(true)}
+                    className="text-gray-400 hover:text-epic-gold transition-colors"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                )}
+              </div>
+              {editandoMonto ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    aria-label="Monto ajustado"
+                    value={pago.montoAjustado ?? total}
+                    onChange={(e) =>
+                      setDatosPago({ montoAjustado: parseFloat(e.target.value) || 0 })
+                    }
+                    className="w-28 rounded-sm border border-epic-gold/40 bg-transparent px-2 py-1 font-montserrat font-bold text-xl text-epic-gold focus:outline-none focus:border-epic-gold"
+                    min={0}
+                    step={0.01}
+                  />
+                  <button
+                    type="button"
+                    title="Confirmar monto"
+                    onClick={() => setEditandoMonto(false)}
+                    className="text-epic-gold hover:text-epic-gold/80 transition-colors"
+                  >
+                    <Check size={16} />
+                  </button>
+                </div>
+              ) : (
+                <span className="font-montserrat font-bold text-xl text-epic-gold">
+                  {fmt(totalFinal)}
+                </span>
+              )}
+            </div>
+
+            {pago.montoAjustado !== null && pago.montoAjustado !== total && (
+              <p className="mt-1 text-right font-inter text-xs text-gray-500 dark:text-white/40">
+                Precio original: {fmt(total)}
+              </p>
+            )}
+
+            {(editandoMonto || pago.montoAjustado !== null) && (
+              <div className="mt-3">
+                <Input
+                  label="Motivo del ajuste"
+                  value={pago.motivoAjuste}
+                  onChange={(e) => setDatosPago({ motivoAjuste: e.target.value })}
+                  placeholder="Ej: Beca, descuento por hermana, acuerdo especial..."
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

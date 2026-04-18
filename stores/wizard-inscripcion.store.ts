@@ -19,10 +19,7 @@ const alumnaVacia: DatosAlumnaWizard = {
   nombre: '',
   apellido: '',
   fechaNacimiento: '',
-  domicilio: '',
   institucionEducativa: '',
-  celular: '',
-  emailAlumna: '',
 };
 
 const tutorVacio: DatosTutorWizard = {
@@ -34,6 +31,7 @@ const tutorVacio: DatosTutorWizard = {
   celularPadre: '',
   emailPadre: '',
   telefonoTrabajoPadre: '',
+  domicilio: '',
 };
 
 const infoGeneralVacia: DatosInfoGeneralWizard = {
@@ -49,6 +47,8 @@ const pagoVacio: DatosPagoWizard = {
   metodoPago: 'EFECTIVO',
   referencia: '',
   comprobanteUrl: null,
+  montoAjustado: null,
+  motivoAjuste: '',
 };
 
 const estadoInicial: EstadoWizard = {
@@ -61,8 +61,10 @@ const estadoInicial: EstadoWizard = {
   grupoSeleccionadoId: null,
   grupoSeleccionado: null,
   cuotaInscripcion: 0,
+  cicloEscolar: '',
   pago: pagoVacio,
   resultado: null,
+  pdfUrl: null,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,8 +78,10 @@ interface AccionesWizard {
   setInfoGeneral: (datos: Partial<DatosInfoGeneralWizard>) => void;
   setGrupoSeleccionado: (grupo: GrupoCard | null) => void;
   setCuotaInscripcion: (cuota: number) => void;
+  setCicloEscolar: (ciclo: string) => void;
   setDatosPago: (datos: Partial<DatosPagoWizard>) => void;
   setResultado: (resultado: ResultadoInscripcion) => void;
+  setPdfUrl: (url: string) => void;
   // Para reinscripción: pre-llena el formulario con datos de la alumna existente
   cargarAlumnaExistente: (
     alumnaId: string,
@@ -114,10 +118,14 @@ export const useWizardInscripcion = create<EstadoWizard & AccionesWizard>()(
 
     setCuotaInscripcion: (cuota) => set({ cuotaInscripcion: cuota }),
 
+    setCicloEscolar: (ciclo) => set({ cicloEscolar: ciclo }),
+
     setDatosPago: (datos) =>
       set((s) => ({ pago: { ...s.pago, ...datos } })),
 
     setResultado: (resultado) => set({ resultado }),
+
+    setPdfUrl: (url) => set({ pdfUrl: url }),
 
     cargarAlumnaExistente: (alumnaId, datosAlumna, datosTutor) =>
       set({

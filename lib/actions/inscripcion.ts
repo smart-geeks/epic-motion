@@ -17,10 +17,7 @@ const DatosAlumnaSchema = z.object({
   nombre: z.string().min(1).max(80),
   apellido: z.string().min(1).max(80),
   fechaNacimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato YYYY-MM-DD"),
-  domicilio: z.string().max(200).default(""),
   institucionEducativa: z.string().max(120).default(""),
-  celular: z.string().max(20).default(""),
-  emailAlumna: z.string().email().or(z.literal("")).default(""),
 });
 
 const DatosTutorSchema = z.object({
@@ -32,6 +29,7 @@ const DatosTutorSchema = z.object({
   celularPadre: z.string().max(20).default(""),
   emailPadre: z.string().email().or(z.literal("")).default(""),
   telefonoTrabajoPadre: z.string().max(20).default(""),
+  domicilio: z.string().max(200).default(""),
 });
 
 const DatosInfoGeneralSchema = z.object({
@@ -49,6 +47,8 @@ const DatosPagoSchema = z.object({
   metodoPago: z.enum(["EFECTIVO", "TRANSFERENCIA", "TARJETA"]),
   referencia: z.string().max(100).default(""),
   comprobanteUrl: z.string().url().nullable().default(null),
+  montoAjustado: z.number().positive().nullable().default(null),
+  motivoAjuste: z.string().max(500).default(""),
 });
 
 const InscripcionSchema = z.object({
@@ -213,10 +213,7 @@ export async function inscribirAlumna(
             nombre: input.alumna.nombre,
             apellido: input.alumna.apellido,
             fechaNacimiento: new Date(input.alumna.fechaNacimiento),
-            domicilio: input.alumna.domicilio || null,
             institucionEducativa: input.alumna.institucionEducativa || null,
-            celular: input.alumna.celular || null,
-            emailAlumna: input.alumna.emailAlumna || null,
             otraAcademia: input.infoGeneral.otraAcademia
               ? input.infoGeneral.nombreOtraAcademia || null
               : null,
@@ -245,6 +242,7 @@ export async function inscribirAlumna(
             emailConyuge: nombreMadre ? input.tutor.emailPadre || null : input.tutor.emailMadre || null,
             celularConyuge: nombreMadre ? input.tutor.celularPadre || null : input.tutor.celularMadre || null,
             nombreConyuge: nombreMadre ? input.tutor.nombrePadre || null : input.tutor.nombreMadre || null,
+            domicilio: input.tutor.domicilio || null,
           },
         });
       } else {
@@ -254,11 +252,10 @@ export async function inscribirAlumna(
         const nombreMadre = input.tutor.nombreMadre;
         const nombrePadre = input.tutor.nombrePadre;
 
-        // El email del padre: preferir email de la madre, luego padre, luego email de la alumna
+        // El email del padre: preferir email de la madre, luego padre
         emailPadre =
           input.tutor.emailMadre ||
-          input.tutor.emailPadre ||
-          input.alumna.emailAlumna;
+          input.tutor.emailPadre;
 
         if (!emailPadre) {
           throw new InscripcionError("Se requiere al menos un correo de contacto del tutor");
@@ -294,6 +291,7 @@ export async function inscribirAlumna(
             telefonoTrabajoConyuge: nombreMadre
               ? input.tutor.telefonoTrabajoPadre || null
               : input.tutor.telefonoTrabajoMadre || null,
+            domicilio: input.tutor.domicilio || null,
             rol: "PADRE",
             activo: true,
           },
@@ -306,10 +304,7 @@ export async function inscribirAlumna(
             nombre: input.alumna.nombre,
             apellido: input.alumna.apellido,
             fechaNacimiento: new Date(input.alumna.fechaNacimiento),
-            domicilio: input.alumna.domicilio || null,
             institucionEducativa: input.alumna.institucionEducativa || null,
-            celular: input.alumna.celular || null,
-            emailAlumna: input.alumna.emailAlumna || null,
             otraAcademia: input.infoGeneral.otraAcademia
               ? input.infoGeneral.nombreOtraAcademia || null
               : null,
@@ -345,12 +340,28 @@ export async function inscribirAlumna(
       const estadoPago = esPagadoInmediato ? EstadoPago.PAGADO : EstadoPago.PENDIENTE;
       const fechaPago = esPagadoInmediato ? hoy : null;
 
-      // ── H. Crear el registro de Pago ───────────────────────────────────────
-      const importeTotal = cuotaInscripcion + precioMensualidad;
+      // ── H. Calcular montos finales con ajuste opcional ─────────────────────
+      const totalOriginal = cuotaInscripcion + precioMensualidad;
+      const totalFinal = input.pago.montoAjustado ?? totalOriginal;
+      const motivoDescuento = input.pago.montoAjustado !== null
+        ? (input.pago.motivoAjuste || null)
+        : null;
 
+      // Distribución proporcional del ajuste entre los dos cargos
+      let montoFinalInsc = cuotaInscripcion;
+      let montoFinalMens = precioMensualidad;
+      if (input.pago.montoAjustado !== null && totalOriginal > 0) {
+        const ratio = totalFinal / totalOriginal;
+        montoFinalInsc = Math.round(cuotaInscripcion * ratio * 100) / 100;
+        montoFinalMens = Math.round((totalFinal - montoFinalInsc) * 100) / 100;
+      }
+      const descuentoInsc = Math.max(0, cuotaInscripcion - montoFinalInsc);
+      const descuentoMens = Math.max(0, precioMensualidad - montoFinalMens);
+
+      // ── I. Crear el registro de Pago ───────────────────────────────────────
       const pago = await tx.pago.create({
         data: {
-          importe: importeTotal,
+          importe: totalFinal,
           concepto: `Inscripción ${grupo.nombre} — ${input.alumna.nombre} ${input.alumna.apellido}`,
           fechaVencimiento: hoy,
           fechaPago,
@@ -362,17 +373,18 @@ export async function inscribirAlumna(
         },
       });
 
-      // ── I. Crear Cargos (sin pagoId — la relación ahora va por AplicacionPago)
+      // ── J. Crear Cargos (la relación va por AplicacionPago)
       const cargoInscripcion = await tx.cargo.create({
         data: {
-          montoOriginal:   cuotaInscripcion,
-          descuento:       0,
-          montoFinal:      cuotaInscripcion,
+          montoOriginal:    cuotaInscripcion,
+          descuento:        descuentoInsc,
+          montoFinal:       montoFinalInsc,
+          motivoDescuento,
           fechaVencimiento: hoy,
           fechaPago,
-          estado:          estadoCargo,
-          notas:           `Cuota inscripción — método: ${input.pago.metodoPago}`,
-          conceptoId:      conceptoInscripcion.id,
+          estado:           estadoCargo,
+          notas:            `Cuota inscripción — método: ${input.pago.metodoPago}`,
+          conceptoId:       conceptoInscripcion.id,
           alumnaId,
           padreId,
         },
@@ -380,26 +392,27 @@ export async function inscribirAlumna(
 
       const cargoMensualidad = await tx.cargo.create({
         data: {
-          montoOriginal:   precioMensualidad,
-          descuento:       0,
-          montoFinal:      precioMensualidad,
+          montoOriginal:    precioMensualidad,
+          descuento:        descuentoMens,
+          montoFinal:       montoFinalMens,
+          motivoDescuento,
           fechaVencimiento: fechaVencimientoMensualidad,
           fechaPago,
-          estado:          estadoCargo,
-          notas:           `Mensualidad ${grupo.nombre} — método: ${input.pago.metodoPago}`,
-          conceptoId:      conceptoMensualidad.id,
+          estado:           estadoCargo,
+          notas:            `Mensualidad ${grupo.nombre} — método: ${input.pago.metodoPago}`,
+          conceptoId:       conceptoMensualidad.id,
           alumnaId,
           padreId,
         },
       });
 
-      // ── J. Vincular Pago ↔ Cargos mediante AplicacionPago.
+      // ── K. Vincular Pago ↔ Cargos mediante AplicacionPago.
       //    El trigger fn_sincronizar_estado_cargo actualiza Cargo.estado automáticamente.
       if (esPagadoInmediato) {
         await tx.aplicacionPago.createMany({
           data: [
-            { pagoId: pago.id, cargoId: cargoInscripcion.id, montoAplicado: cuotaInscripcion },
-            { pagoId: pago.id, cargoId: cargoMensualidad.id, montoAplicado: precioMensualidad },
+            { pagoId: pago.id, cargoId: cargoInscripcion.id, montoAplicado: montoFinalInsc },
+            { pagoId: pago.id, cargoId: cargoMensualidad.id, montoAplicado: montoFinalMens },
           ],
         });
       }

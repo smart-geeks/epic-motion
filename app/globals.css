@@ -42,3 +42,15 @@
     text-wrap: balance;
   }
 }
+
+@media print {
+  body * { visibility: hidden; }
+  #ticket-container,
+  #ticket-container * { visibility: visible; }
+  #ticket-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+  @page { margin: 0; size: 80mm auto; }
+}

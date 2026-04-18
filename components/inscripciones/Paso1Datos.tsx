@@ -7,13 +7,14 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import RadioGroup from '@/components/ui/RadioGroup';
 import Checkbox from '@/components/ui/Checkbox';
-import SelectorGrupo from '@/components/inscripciones/SelectorGrupo';
+import ArmadorClases from '@/components/inscripciones/ArmadorClases';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
 import type { GrupoCard, AlumnaBusqueda } from '@/types/inscripciones';
 
 interface Paso1DatosProps {
   grupos: GrupoCard[];
   cuotaInscripcion: number;
+  cicloEscolar: string;
 }
 
 // ── Calcula edad a partir de ISO string ────────────────────────────────────
@@ -28,12 +29,12 @@ function calcularEdad(fechaISO: string): number | null {
   return edad;
 }
 
-export default function Paso1Datos({ grupos }: Paso1DatosProps) {
+export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
   const {
     alumna, setDatosAlumna,
     tutor, setDatosTutor,
     infoGeneral, setInfoGeneral,
-    grupoSeleccionado, grupoSeleccionadoId, setGrupoSeleccionado,
+    grupoSeleccionadoId, setGrupoSeleccionado,
     esReinscripcion, alumnaIdExistente,
     cargarAlumnaExistente, cancelarReinscripcion,
     setPaso,
@@ -72,10 +73,7 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
         nombre: a.nombre,
         apellido: a.apellido,
         fechaNacimiento: a.fechaNacimiento.split('T')[0],
-        domicilio: '',
         institucionEducativa: '',
-        celular: '',
-        emailAlumna: '',
       },
       {
         nombreMadre: a.padre.nombre + ' ' + a.padre.apellido,
@@ -86,6 +84,7 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
         celularPadre: '',
         emailPadre: '',
         telefonoTrabajoPadre: '',
+        domicilio: '',
       }
     );
     setResultadosBusqueda([]);
@@ -102,10 +101,12 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
     if (!alumna.apellido.trim()) e.apellido = 'El apellido es obligatorio';
     if (!alumna.fechaNacimiento) e.fechaNacimiento = 'La fecha de nacimiento es obligatoria';
     if (!grupoSeleccionadoId) e.grupo = 'Selecciona un grupo';
-    if (!infoGeneral.aceptaTerminos) e.terminos = 'Debes aceptar los términos y condiciones';
     if (!tutor.nombreMadre && !tutor.nombrePadre) e.tutor = 'Ingresa el nombre de al menos un tutor';
-    if (!tutor.emailMadre && !tutor.emailPadre && !alumna.emailAlumna) {
-      e.email = 'Se requiere al menos un correo de contacto';
+    if (!tutor.emailMadre && !tutor.emailPadre) {
+      e.email = 'Se requiere al menos un correo de contacto (madre o padre)';
+    }
+    if (!infoGeneral.aceptaTerminos) {
+      e.aceptaTerminos = 'El tutor debe aceptar los términos y condiciones';
     }
     setErrores(e);
     return Object.keys(e).length === 0;
@@ -138,6 +139,8 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
               type="button"
               onClick={cancelarReinscripcion}
               className="text-gray-400 dark:text-white/30 hover:text-epic-black dark:hover:text-white"
+              title="Cancelar reinscripción"
+              aria-label="Cancelar reinscripción"
             >
               <X size={16} />
             </button>
@@ -241,28 +244,6 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
             )}
           </div>
           <Input
-            label="Celular"
-            type="tel"
-            value={alumna.celular}
-            onChange={(e) => setDatosAlumna({ celular: e.target.value })}
-            placeholder="(871) 000-0000"
-          />
-          <Input
-            label="Email"
-            type="email"
-            value={alumna.emailAlumna}
-            onChange={(e) => setDatosAlumna({ emailAlumna: e.target.value })}
-            placeholder="correo@ejemplo.com"
-            className="sm:col-span-1"
-          />
-          <Input
-            label="Domicilio"
-            value={alumna.domicilio}
-            onChange={(e) => setDatosAlumna({ domicilio: e.target.value })}
-            placeholder="Calle, colonia, ciudad"
-            className="sm:col-span-2"
-          />
-          <Input
             label="Institución educativa"
             value={alumna.institucionEducativa}
             onChange={(e) => setDatosAlumna({ institucionEducativa: e.target.value })}
@@ -272,39 +253,19 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
         </div>
       </section>
 
-      {/* ── Sección: GRUPO / DISCIPLINA ──────────────────────────────── */}
+      {/* ── Sección: DISCIPLINA / GRUPO ──────────────────────────────── */}
       <section>
         <h3 className="font-montserrat font-bold text-xs tracking-[0.18em] uppercase text-epic-black dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-white/8">
           Disciplina / Grupo
         </h3>
-        <SelectorGrupo
+        <ArmadorClases
           grupos={grupos}
+          fechaNacimiento={alumna.fechaNacimiento}
           grupoSeleccionadoId={grupoSeleccionadoId}
           onSelect={setGrupoSeleccionado}
+          cicloEscolar={cicloEscolar}
+          error={errores.grupo}
         />
-        {errores.grupo && (
-          <p className="font-inter text-xs text-red-500 dark:text-red-400 mt-2">{errores.grupo}</p>
-        )}
-        {grupoSeleccionado && (
-          <div className="mt-4 p-3 rounded-sm bg-epic-gold/8 border border-epic-gold/25 flex flex-wrap gap-4">
-            <div>
-              <p className="font-inter text-xs text-gray-500 dark:text-epic-silver">Horas por semana</p>
-              <p className="font-montserrat font-bold text-sm text-epic-black dark:text-white">
-                {grupoSeleccionado.horasPorSemana} h
-              </p>
-            </div>
-            {grupoSeleccionado.tarifa && (
-              <div>
-                <p className="font-inter text-xs text-gray-500 dark:text-epic-silver">Mensualidad</p>
-                <p className="font-montserrat font-bold text-sm text-epic-black dark:text-white">
-                  {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(
-                    grupoSeleccionado.tarifa.precioMensualidad
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
       </section>
 
       {/* ── Sección: PADRE / MADRE / TUTOR ───────────────────────────── */}
@@ -348,6 +309,13 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
                 value={tutor.telefonoTrabajoMadre}
                 onChange={(e) => setDatosTutor({ telefonoTrabajoMadre: e.target.value })}
                 placeholder="(871) 000-0000"
+              />
+              <Input
+                label="Domicilio"
+                value={tutor.domicilio}
+                onChange={(e) => setDatosTutor({ domicilio: e.target.value })}
+                placeholder="Calle, colonia, ciudad"
+                className="sm:col-span-2"
               />
             </div>
           </div>
@@ -455,26 +423,19 @@ export default function Paso1Datos({ grupos }: Paso1DatosProps) {
               }
             />
           </div>
+
+          {/* Términos y condiciones */}
+          <div className="sm:col-span-2 pt-2">
+            <Checkbox
+              id="aceptaTerminos"
+              checked={infoGeneral.aceptaTerminos}
+              onChange={(v) => setInfoGeneral({ aceptaTerminos: v })}
+              error={errores.aceptaTerminos}
+              label="El padre/tutor acepta los términos y condiciones de la academia."
+            />
+          </div>
         </div>
       </section>
-
-      {/* ── Términos y condiciones ────────────────────────────────────── */}
-      <div className="p-4 rounded-sm bg-transparent dark:bg-black/40 border border-gray-200 dark:border-white/10">
-        <Checkbox
-          id="terminos"
-          checked={infoGeneral.aceptaTerminos}
-          onChange={(v) => setInfoGeneral({ aceptaTerminos: v })}
-          error={errores.terminos}
-          label={
-            <span>
-              He leído y acepto los{' '}
-              <span className="text-epic-gold font-medium">
-                términos y condiciones del Reglamento de Epic Motion
-              </span>
-            </span>
-          }
-        />
-      </div>
 
       {/* ── Botón siguiente ───────────────────────────────────────────── */}
       <div className="flex justify-end pt-2">

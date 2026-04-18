@@ -7,12 +7,13 @@ import Paso1Datos from '@/components/inscripciones/Paso1Datos';
 import Paso2POS from '@/components/inscripciones/Paso2POS';
 import Paso3Confirmacion from '@/components/inscripciones/Paso3Confirmacion';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
-import type { GrupoCard } from '@/types/inscripciones';
+import type { GrupoCard, GruposAPIResponse } from '@/types/inscripciones';
 
 export default function WizardInscripcion() {
-  const { paso, setCuotaInscripcion } = useWizardInscripcion();
+  const { paso, setCuotaInscripcion, setCicloEscolar } = useWizardInscripcion();
 
   const [grupos, setGrupos] = useState<GrupoCard[]>([]);
+  const [cicloEscolar, setCicloLocal] = useState('');
   const [cuotaInscripcion, setCuotaLocal] = useState(0);
   const [cargando, setCargando] = useState(true);
 
@@ -27,14 +28,16 @@ export default function WizardInscripcion() {
 
         if (!resGrupos.ok || !resCfg.ok) throw new Error('Error al cargar datos iniciales');
 
-        const dataGrupos: GrupoCard[] = await resGrupos.json();
+        const dataGrupos: GruposAPIResponse = await resGrupos.json();
         const dataCfg: Record<string, string> = await resCfg.json();
 
         const cuota = parseFloat(dataCfg.cuota_inscripcion ?? '0');
 
-        setGrupos(dataGrupos);
+        setGrupos(dataGrupos.grupos);
+        setCicloLocal(dataGrupos.cicloEscolar);
+        setCicloEscolar(dataGrupos.cicloEscolar); // sincronizar con el store
         setCuotaLocal(cuota);
-        setCuotaInscripcion(cuota); // sincronizar con el store
+        setCuotaInscripcion(cuota);
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : 'Error al cargar el wizard');
       } finally {
@@ -61,7 +64,7 @@ export default function WizardInscripcion() {
     <div className="max-w-3xl mx-auto">
       <PasoIndicador pasoActual={paso} />
 
-      {paso === 1 && <Paso1Datos grupos={grupos} cuotaInscripcion={cuotaInscripcion} />}
+      {paso === 1 && <Paso1Datos grupos={grupos} cuotaInscripcion={cuotaInscripcion} cicloEscolar={cicloEscolar} />}
       {paso === 2 && <Paso2POS />}
       {paso === 3 && <Paso3Confirmacion />}
     </div>

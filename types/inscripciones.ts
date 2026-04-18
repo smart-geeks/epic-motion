@@ -11,10 +11,7 @@ export interface DatosAlumnaWizard {
   nombre: string;
   apellido: string;
   fechaNacimiento: string; // ISO string "YYYY-MM-DD"; convertir a Date en el server
-  domicilio: string;
   institucionEducativa: string;
-  celular: string;
-  emailAlumna: string;
 }
 
 export interface DatosTutorWizard {
@@ -28,6 +25,7 @@ export interface DatosTutorWizard {
   celularPadre: string;
   emailPadre: string;
   telefonoTrabajoPadre: string;
+  domicilio: string;
 }
 
 export interface DatosInfoGeneralWizard {
@@ -47,11 +45,15 @@ export interface DisciplinaCard {
   id: string;
   nombre: string;
   color: string | null;
+  horaTexto: string; // "Lun y Mié 17:00–18:00" — horario específico de esta disciplina en el grupo
 }
 
 export interface GrupoCard {
   id: string;
   nombre: string;
+  categoria: string; // 'EPIC_TOTZ' | 'HAPPY_FEET' | 'EPIC_ONE' | 'TEEN' | 'COMPETICION'
+  esCompetitivo: boolean;
+  tier: string; // 'BASE' | 'T1' | 'T2' | 'T3' | 'T4' | 'FULL'
   edadMin: number;
   edadMax: number;
   horasPorSemana: number;
@@ -59,13 +61,19 @@ export interface GrupoCard {
   horaInicio: string;
   duracionMinutos: number;
   cupo: number;
-  inscritos: number; // para calcular disponibilidad en UI
+  inscritos: number;
   disciplinas: DisciplinaCard[];
   tarifa: {
     id: string;
     precioMensualidad: number;
     precioPreseason: number;
   } | null;
+}
+
+// Respuesta de GET /api/grupos
+export interface GruposAPIResponse {
+  grupos: GrupoCard[];
+  cicloEscolar: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -76,8 +84,10 @@ export type MetodoPago = 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA';
 
 export interface DatosPagoWizard {
   metodoPago: MetodoPago;
-  referencia: string;       // número de referencia para transferencias
-  comprobanteUrl: string | null; // URL en Supabase Storage (opcional)
+  referencia: string;
+  comprobanteUrl: string | null;
+  montoAjustado: number | null; // null = sin ajuste (usar precio calculado)
+  motivoAjuste: string;          // obligatorio si montoAjustado !== null
 }
 
 // ---------------------------------------------------------------------------
@@ -94,15 +104,17 @@ export interface ResultadoInscripcion {
 export interface EstadoWizard {
   paso: 1 | 2 | 3;
   esReinscripcion: boolean;
-  alumnaIdExistente: string | null; // ID para reinscripción
+  alumnaIdExistente: string | null;
   alumna: DatosAlumnaWizard;
   tutor: DatosTutorWizard;
   infoGeneral: DatosInfoGeneralWizard;
   grupoSeleccionadoId: string | null;
   grupoSeleccionado: GrupoCard | null;
-  cuotaInscripcion: number; // de Configuracion.cuota_inscripcion
+  cuotaInscripcion: number;
+  cicloEscolar: string;
   pago: DatosPagoWizard;
   resultado: ResultadoInscripcion | null;
+  pdfUrl: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -33,6 +33,11 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             'text-epic-black dark:text-white',
             'placeholder:text-gray-400 dark:placeholder:text-white/40',
             'focus:outline-none focus:border-epic-gold focus:ring-1 focus:ring-epic-gold/40',
+            // Neutraliza el fondo blanco que inyecta el autofill del navegador
+            '[&:-webkit-autofill]:![box-shadow:0_0_0_1000px_transparent_inset]',
+            'dark:[&:-webkit-autofill]:![box-shadow:0_0_0_1000px_#0A0A0A_inset]',
+            'dark:[&:-webkit-autofill]:[-webkit-text-fill-color:white]',
+            '[&:-webkit-autofill]:[transition:background-color_9999s_ease_0s]',
             'transition-colors rounded-sm',
             error ? 'border-red-400 dark:border-red-500' : '',
             props.disabled ? 'opacity-50 cursor-not-allowed' : '',

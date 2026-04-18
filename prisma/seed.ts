@@ -1,6 +1,12 @@
 import "dotenv/config";
-import { PrismaClient, Rol, EstatusAlumna, EstiloClase } from "../app/generated/prisma/client";
-// Nota: Disciplina, Grupo, GrupoDisciplina y TarifaMensualidad se agregan al final del seed
+import {
+  PrismaClient,
+  Rol,
+  EstatusAlumna,
+  EstiloClase,
+  CategoriaGrupo,
+  TipoTierGrupo,
+} from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 
@@ -285,10 +291,9 @@ async function main() {
   console.log("✅ Alumnas creadas");
 
   // ─────────────────────────────────────────────
-  // Inscripciones (upsert por clave compuesta — única)
+  // Inscripciones (upsert por clave compuesta)
   // ─────────────────────────────────────────────
 
-  // Sofía → Ballet + Tap
   await prisma.alumnaClase.upsert({
     where:  { alumnaId_claseId: { alumnaId: sofia.id, claseId: clasesBallet.id } },
     update: {},
@@ -299,15 +304,11 @@ async function main() {
     update: {},
     create: { alumnaId: sofia.id, claseId: claseTap.id },
   });
-
-  // Valentina → Ballet
   await prisma.alumnaClase.upsert({
     where:  { alumnaId_claseId: { alumnaId: valentina.id, claseId: clasesBallet.id } },
     update: {},
     create: { alumnaId: valentina.id, claseId: clasesBallet.id },
   });
-
-  // María → Jazz + Acro
   await prisma.alumnaClase.upsert({
     where:  { alumnaId_claseId: { alumnaId: maria.id, claseId: claseJazz.id } },
     update: {},
@@ -322,55 +323,14 @@ async function main() {
   console.log("✅ Inscripciones creadas");
 
   // ─────────────────────────────────────────────
-  // Paquetes (findOrCreate por nombre)
-  // ─────────────────────────────────────────────
-
-  await findOrCreate(
-    () => prisma.paquete.findFirst({ where: { nombre: "Básico" } }),
-    () => prisma.paquete.create({
-      data: {
-        nombre:           "Básico",
-        clasesPorSemana:  2,
-        precio:           800,
-        estilosIncluidos: ["BALLET", "HIPHOP", "TAP", "JAZZ", "ACRO"],
-      },
-    })
-  );
-
-  await findOrCreate(
-    () => prisma.paquete.findFirst({ where: { nombre: "Intensivo" } }),
-    () => prisma.paquete.create({
-      data: {
-        nombre:           "Intensivo",
-        clasesPorSemana:  4,
-        precio:           1400,
-        estilosIncluidos: ["BALLET", "HIPHOP", "TAP", "JAZZ", "ACRO"],
-      },
-    })
-  );
-
-  console.log("✅ Paquetes creados");
-
-  // ─────────────────────────────────────────────
-  // Configuración (upsert por clave — campo único)
+  // Configuración (upsert por clave)
   // ─────────────────────────────────────────────
 
   const configs = [
-    {
-      clave:       "umbral_faltas",
-      valor:       "3",
-      descripcion: "Número de faltas consecutivas antes de notificar al padre",
-    },
-    {
-      clave:       "minutos_checkin",
-      valor:       "10",
-      descripcion: "Minutos máximos para que el maestro inicie la clase antes de marcar retraso",
-    },
-    {
-      clave:       "dia_corte_global",
-      valor:       "1",
-      descripcion: "Día del mes en que vence el pago mensual (global)",
-    },
+    { clave: "umbral_faltas",      valor: "3",   descripcion: "Faltas consecutivas antes de notificar al padre" },
+    { clave: "minutos_checkin",    valor: "10",  descripcion: "Minutos máximos para que el maestro inicie la clase" },
+    { clave: "dia_corte_global",   valor: "1",   descripcion: "Día del mes en que vence el pago mensual (global)" },
+    { clave: "cuota_inscripcion",  valor: "500", descripcion: "Cuota única de inscripción por alumna (nuevo ingreso)" },
   ];
 
   for (const config of configs) {
@@ -381,168 +341,419 @@ async function main() {
     });
   }
 
-  // Agregar cuota_inscripcion
-  await prisma.configuracion.upsert({
-    where:  { clave: "cuota_inscripcion" },
-    update: {},
-    create: {
-      clave:       "cuota_inscripcion",
-      valor:       "500",
-      descripcion: "Cuota única de inscripción por alumna (nuevo ingreso)",
-    },
-  });
-
   console.log("✅ Configuración creada");
 
   // ─────────────────────────────────────────────
-  // Disciplinas (findOrCreate por nombre)
+  // Disciplinas (upsert por nombre — campo único)
   // ─────────────────────────────────────────────
+  // Catálogo completo de disciplinas de Epic Motion
 
-  const disciplinasBallet = await findOrCreate(
-    () => prisma.disciplina.findFirst({ where: { nombre: "Ballet" } }),
-    () => prisma.disciplina.create({ data: { nombre: "Ballet", color: "#F8BBD0" } })
-  );
-  const disciplinaHipHop = await findOrCreate(
-    () => prisma.disciplina.findFirst({ where: { nombre: "Hip-Hop" } }),
-    () => prisma.disciplina.create({ data: { nombre: "Hip-Hop", color: "#B3E5FC" } })
-  );
-  const disciplinaTap = await findOrCreate(
-    () => prisma.disciplina.findFirst({ where: { nombre: "Tap" } }),
-    () => prisma.disciplina.create({ data: { nombre: "Tap", color: "#DCEDC8" } })
-  );
-  const disciplinaJazz = await findOrCreate(
-    () => prisma.disciplina.findFirst({ where: { nombre: "Jazz" } }),
-    () => prisma.disciplina.create({ data: { nombre: "Jazz", color: "#FFE0B2" } })
-  );
-  const disciplinaAcro = await findOrCreate(
-    () => prisma.disciplina.findFirst({ where: { nombre: "Acro" } }),
-    () => prisma.disciplina.create({ data: { nombre: "Acro", color: "#E1BEE7" } })
-  );
+  const dMovimiento = await prisma.disciplina.upsert({
+    where:  { nombre: "Movimiento y Ritmo" },
+    update: {},
+    create: { nombre: "Movimiento y Ritmo", color: "#FFF9C4", descripcion: "Clase base para los más pequeños" },
+  });
+  const dBallet = await prisma.disciplina.upsert({
+    where:  { nombre: "Ballet" },
+    update: {},
+    create: { nombre: "Ballet", color: "#F8BBD0" },
+  });
+  const dHipHop = await prisma.disciplina.upsert({
+    where:  { nombre: "Hip-Hop" },
+    update: {},
+    create: { nombre: "Hip-Hop", color: "#B3E5FC" },
+  });
+  const dTap = await prisma.disciplina.upsert({
+    where:  { nombre: "Tap" },
+    update: {},
+    create: { nombre: "Tap", color: "#DCEDC8" },
+  });
+  const dJazz = await prisma.disciplina.upsert({
+    where:  { nombre: "Jazz" },
+    update: {},
+    create: { nombre: "Jazz", color: "#FFE0B2" },
+  });
+  const dAcro = await prisma.disciplina.upsert({
+    where:  { nombre: "Acro" },
+    update: {},
+    create: { nombre: "Acro", color: "#E1BEE7" },
+  });
+  const dContempo = await prisma.disciplina.upsert({
+    where:  { nombre: "Contempo" },
+    update: {},
+    create: { nombre: "Contempo", color: "#E0F7FA", descripcion: "Danza contemporánea" },
+  });
+  const dConditioning = await prisma.disciplina.upsert({
+    where:  { nombre: "Conditioning" },
+    update: {},
+    create: { nombre: "Conditioning", color: "#FFCCBC", descripcion: "Acondicionamiento físico para danza" },
+  });
+  const dTecnica = await prisma.disciplina.upsert({
+    where:  { nombre: "Técnica" },
+    update: {},
+    create: { nombre: "Técnica", color: "#FFF9C4", descripcion: "Técnica avanzada de danza" },
+  });
+  const dPuntas = await prisma.disciplina.upsert({
+    where:  { nombre: "Puntas" },
+    update: {},
+    create: { nombre: "Puntas", color: "#F8BBD0", descripcion: "Ballet en puntas" },
+  });
 
   console.log("✅ Disciplinas creadas");
 
   // ─────────────────────────────────────────────
-  // Grupos de prueba
+  // Helper para upsert de GrupoDisciplina
   // ─────────────────────────────────────────────
 
-  const grupoTinyFull = await findOrCreate(
-    () => prisma.grupo.findFirst({ where: { nombre: "TINY FULL" } }),
-    () => prisma.grupo.create({
-      data: {
-        nombre: "TINY FULL",
-        edadMin: 6,
-        edadMax: 8,
-        horasPorSemana: 10,
-        dias: ["L", "M", "X", "J", "V"],
-        horaInicio: "16:00",
-        duracionMinutos: 60,
-        cupo: 15,
-        salonId: salonPrincipal.id,
+  type GDData = {
+    disciplinaId: string;
+    dias: string[];
+    horaInicio: string;
+    duracionMinutos: number;
+    horaTexto: string;
+  };
+
+  async function upsertGrupoDisciplina(grupoId: string, gd: GDData) {
+    await prisma.grupoDisciplina.upsert({
+      where:  { grupoId_disciplinaId: { grupoId, disciplinaId: gd.disciplinaId } },
+      update: {
+        dias: gd.dias,
+        horaInicio: gd.horaInicio,
+        duracionMinutos: gd.duracionMinutos,
+        horaTexto: gd.horaTexto,
       },
-    })
-  );
-
-  const grupoSeniorFull = await findOrCreate(
-    () => prisma.grupo.findFirst({ where: { nombre: "SENIOR FULL" } }),
-    () => prisma.grupo.create({
-      data: {
-        nombre: "SENIOR FULL",
-        edadMin: 15,
-        edadMax: 99,
-        horasPorSemana: 15.5,
-        dias: ["L", "M", "X", "J", "V", "S"],
-        horaInicio: "17:00",
-        duracionMinutos: 90,
-        cupo: 12,
-        salonId: salonPrincipal.id,
+      create: {
+        grupoId,
+        disciplinaId: gd.disciplinaId,
+        dias: gd.dias,
+        horaInicio: gd.horaInicio,
+        duracionMinutos: gd.duracionMinutos,
+        horaTexto: gd.horaTexto,
       },
-    })
-  );
-
-  const grupoEpicOne2 = await findOrCreate(
-    () => prisma.grupo.findFirst({ where: { nombre: "EPIC ONE 2 CLASES" } }),
-    () => prisma.grupo.create({
-      data: {
-        nombre: "EPIC ONE 2 CLASES",
-        edadMin: 8,
-        edadMax: 12,
-        horasPorSemana: 4,
-        dias: ["L", "X"],
-        horaInicio: "16:00",
-        duracionMinutos: 120,
-        cupo: 15,
-        salonId: salonB.id,
-      },
-    })
-  );
-
-  console.log("✅ Grupos creados");
-
-  // ─────────────────────────────────────────────
-  // GrupoDisciplina (pivot)
-  // ─────────────────────────────────────────────
-
-  const pivotData = [
-    { grupoId: grupoTinyFull.id, disciplinaId: disciplinasBallet.id },
-    { grupoId: grupoTinyFull.id, disciplinaId: disciplinaHipHop.id },
-    { grupoId: grupoTinyFull.id, disciplinaId: disciplinaTap.id },
-    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinasBallet.id },
-    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinaHipHop.id },
-    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinaJazz.id },
-    { grupoId: grupoSeniorFull.id, disciplinaId: disciplinaAcro.id },
-    { grupoId: grupoEpicOne2.id, disciplinaId: disciplinasBallet.id },
-    { grupoId: grupoEpicOne2.id, disciplinaId: disciplinaJazz.id },
-  ];
-
-  for (const pivot of pivotData) {
-    await findOrCreate(
-      () => prisma.grupoDisciplina.findUnique({
-        where: { grupoId_disciplinaId: pivot },
-      }),
-      () => prisma.grupoDisciplina.create({ data: pivot })
-    );
+    });
   }
 
-  console.log("✅ GrupoDisciplina creado");
-
   // ─────────────────────────────────────────────
-  // TarifaMensualidad (upsert por grupoId — campo único)
+  // Grupos — Academia Regular
   // ─────────────────────────────────────────────
 
-  await prisma.tarifaMensualidad.upsert({
-    where: { grupoId: grupoTinyFull.id },
-    update: {},
-    create: {
-      grupoId: grupoTinyFull.id,
-      precioMensualidad: 1500,
-      precioPreseason: 999,
-      horasPorSemana: 10,
-    },
+  // ── EPIC TOTZ (2–4 años) ───────────────────────────────────────────────────
+
+  const gTotzBase = await prisma.grupo.upsert({
+    where:  { nombre: "EPIC TOTZ" },
+    update: { categoria: CategoriaGrupo.EPIC_TOTZ, esCompetitivo: false, tier: TipoTierGrupo.BASE,
+              edadMin: 2, edadMax: 4, horasPorSemana: 2, dias: ["L","X"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 12 },
+    create: { nombre: "EPIC TOTZ", categoria: CategoriaGrupo.EPIC_TOTZ, esCompetitivo: false,
+              tier: TipoTierGrupo.BASE, edadMin: 2, edadMax: 4, horasPorSemana: 2,
+              dias: ["L","X"], horaInicio: "16:00", duracionMinutos: 60, cupo: 12,
+              salonId: salonB.id },
   });
 
-  await prisma.tarifaMensualidad.upsert({
-    where: { grupoId: grupoSeniorFull.id },
-    update: {},
-    create: {
-      grupoId: grupoSeniorFull.id,
-      precioMensualidad: 1900,
-      precioPreseason: 999,
-      horasPorSemana: 15.5,
-    },
+  await upsertGrupoDisciplina(gTotzBase.id, {
+    disciplinaId: dMovimiento.id,
+    dias: ["L","X"], horaInicio: "16:00", duracionMinutos: 60,
+    horaTexto: "Lun y Mié 16:00–17:00",
   });
 
-  await prisma.tarifaMensualidad.upsert({
-    where: { grupoId: grupoEpicOne2.id },
-    update: {},
-    create: {
-      grupoId: grupoEpicOne2.id,
-      precioMensualidad: 1000,
-      precioPreseason: 999,
-      horasPorSemana: 4,
-    },
+  // ── HAPPY FEET (5–7 años) ──────────────────────────────────────────────────
+  // Horarios por disciplina: Hip-Hop L+X 16–17, Ballet L+X 17–18, Tap M+J 16–17, Jazz M+J 17–18, Acro S 10–12
+
+  const gHF2 = await prisma.grupo.upsert({
+    where:  { nombre: "HAPPY FEET 2 CLASES" },
+    update: { categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false, tier: TipoTierGrupo.T2,
+              edadMin: 5, edadMax: 7, horasPorSemana: 4, dias: ["L","M","X","J"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "HAPPY FEET 2 CLASES", categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false,
+              tier: TipoTierGrupo.T2, edadMin: 5, edadMax: 7, horasPorSemana: 4,
+              dias: ["L","M","X","J"], horaInicio: "16:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
   });
 
-  console.log("✅ Tarifas de mensualidad creadas");
+  const gHF3 = await prisma.grupo.upsert({
+    where:  { nombre: "HAPPY FEET 3 CLASES" },
+    update: { categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false, tier: TipoTierGrupo.T3,
+              edadMin: 5, edadMax: 7, horasPorSemana: 6, dias: ["L","M","X","J"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "HAPPY FEET 3 CLASES", categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false,
+              tier: TipoTierGrupo.T3, edadMin: 5, edadMax: 7, horasPorSemana: 6,
+              dias: ["L","M","X","J"], horaInicio: "16:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
+  const gHF4 = await prisma.grupo.upsert({
+    where:  { nombre: "HAPPY FEET 4 CLASES" },
+    update: { categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false, tier: TipoTierGrupo.T4,
+              edadMin: 5, edadMax: 7, horasPorSemana: 8, dias: ["L","M","X","J"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "HAPPY FEET 4 CLASES", categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false,
+              tier: TipoTierGrupo.T4, edadMin: 5, edadMax: 7, horasPorSemana: 8,
+              dias: ["L","M","X","J"], horaInicio: "16:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  const gHFFull = await prisma.grupo.upsert({
+    where:  { nombre: "HAPPY FEET FULL" },
+    update: { categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false, tier: TipoTierGrupo.FULL,
+              edadMin: 5, edadMax: 7, horasPorSemana: 10, dias: ["L","M","X","J","S"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "HAPPY FEET FULL", categoria: CategoriaGrupo.HAPPY_FEET, esCompetitivo: false,
+              tier: TipoTierGrupo.FULL, edadMin: 5, edadMax: 7, horasPorSemana: 10,
+              dias: ["L","M","X","J","S"], horaInicio: "16:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  // GrupoDisciplinas de HAPPY FEET FULL (fuente de disciplinas y horarios para el wizard)
+  const gdHF: GDData[] = [
+    { disciplinaId: dHipHop.id, dias: ["L","X"], horaInicio: "16:00", duracionMinutos: 60, horaTexto: "Lun y Mié 16:00–17:00" },
+    { disciplinaId: dBallet.id, dias: ["L","X"], horaInicio: "17:00", duracionMinutos: 60, horaTexto: "Lun y Mié 17:00–18:00" },
+    { disciplinaId: dTap.id,    dias: ["M","J"], horaInicio: "16:00", duracionMinutos: 60, horaTexto: "Mar y Jue 16:00–17:00" },
+    { disciplinaId: dJazz.id,   dias: ["M","J"], horaInicio: "17:00", duracionMinutos: 60, horaTexto: "Mar y Jue 17:00–18:00" },
+    { disciplinaId: dAcro.id,   dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00" },
+  ];
+  for (const gd of gdHF) await upsertGrupoDisciplina(gHFFull.id, gd);
+
+  // ── EPIC ONE (8–12 años) ───────────────────────────────────────────────────
+  // Horarios: Tap L+X 17–18, Hip-Hop L+X 18–19, Jazz M+J 16–17, Ballet M+J 17–18, Acro S 10–12
+
+  const gEO1 = await prisma.grupo.upsert({
+    where:  { nombre: "EPIC ONE 1 CLASE" },
+    update: { categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false, tier: TipoTierGrupo.T1,
+              edadMin: 8, edadMax: 12, horasPorSemana: 2, dias: ["L","M","X","J"],
+              horaInicio: "17:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "EPIC ONE 1 CLASE", categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false,
+              tier: TipoTierGrupo.T1, edadMin: 8, edadMax: 12, horasPorSemana: 2,
+              dias: ["L","M","X","J"], horaInicio: "17:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
+  const gEO2 = await prisma.grupo.upsert({
+    where:  { nombre: "EPIC ONE 2 CLASES" },
+    update: { categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false, tier: TipoTierGrupo.T2,
+              edadMin: 8, edadMax: 12, horasPorSemana: 4, dias: ["L","M","X","J"],
+              horaInicio: "17:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "EPIC ONE 2 CLASES", categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false,
+              tier: TipoTierGrupo.T2, edadMin: 8, edadMax: 12, horasPorSemana: 4,
+              dias: ["L","M","X","J"], horaInicio: "17:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
+  const gEO3 = await prisma.grupo.upsert({
+    where:  { nombre: "EPIC ONE 3 CLASES" },
+    update: { categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false, tier: TipoTierGrupo.T3,
+              edadMin: 8, edadMax: 12, horasPorSemana: 6, dias: ["L","M","X","J"],
+              horaInicio: "17:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "EPIC ONE 3 CLASES", categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false,
+              tier: TipoTierGrupo.T3, edadMin: 8, edadMax: 12, horasPorSemana: 6,
+              dias: ["L","M","X","J"], horaInicio: "17:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
+  const gEO4 = await prisma.grupo.upsert({
+    where:  { nombre: "EPIC ONE 4 CLASES" },
+    update: { categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false, tier: TipoTierGrupo.T4,
+              edadMin: 8, edadMax: 12, horasPorSemana: 8, dias: ["L","M","X","J"],
+              horaInicio: "17:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "EPIC ONE 4 CLASES", categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false,
+              tier: TipoTierGrupo.T4, edadMin: 8, edadMax: 12, horasPorSemana: 8,
+              dias: ["L","M","X","J"], horaInicio: "17:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  const gEOFull = await prisma.grupo.upsert({
+    where:  { nombre: "EPIC ONE FULL" },
+    update: { categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false, tier: TipoTierGrupo.FULL,
+              edadMin: 8, edadMax: 12, horasPorSemana: 10, dias: ["L","M","X","J","S"],
+              horaInicio: "17:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "EPIC ONE FULL", categoria: CategoriaGrupo.EPIC_ONE, esCompetitivo: false,
+              tier: TipoTierGrupo.FULL, edadMin: 8, edadMax: 12, horasPorSemana: 10,
+              dias: ["L","M","X","J","S"], horaInicio: "17:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  const gdEO: GDData[] = [
+    { disciplinaId: dTap.id,    dias: ["L","X"], horaInicio: "17:00", duracionMinutos: 60, horaTexto: "Lun y Mié 17:00–18:00" },
+    { disciplinaId: dHipHop.id, dias: ["L","X"], horaInicio: "18:00", duracionMinutos: 60, horaTexto: "Lun y Mié 18:00–19:00" },
+    { disciplinaId: dJazz.id,   dias: ["M","J"], horaInicio: "16:00", duracionMinutos: 60, horaTexto: "Mar y Jue 16:00–17:00" },
+    { disciplinaId: dBallet.id, dias: ["M","J"], horaInicio: "17:00", duracionMinutos: 60, horaTexto: "Mar y Jue 17:00–18:00" },
+    { disciplinaId: dAcro.id,   dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00" },
+  ];
+  for (const gd of gdEO) await upsertGrupoDisciplina(gEOFull.id, gd);
+
+  // ── TEEN (12–17 años) ──────────────────────────────────────────────────────
+  // Horarios: Tap L+X 19–20, Hip-Hop L+X 20–21, Ballet M+J 18–19, Jazz M+J 19–20:30, Contempo S 10–11, Conditioning S 11–12
+
+  const gTeen2 = await prisma.grupo.upsert({
+    where:  { nombre: "TEEN 2 DÍAS" },
+    update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T2,
+              edadMin: 12, edadMax: 17, horasPorSemana: 4, dias: ["L","X"],
+              horaInicio: "19:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "TEEN 2 DÍAS", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+              tier: TipoTierGrupo.T2, edadMin: 12, edadMax: 17, horasPorSemana: 4,
+              dias: ["L","X"], horaInicio: "19:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonB.id },
+  });
+
+  const gTeen4 = await prisma.grupo.upsert({
+    where:  { nombre: "TEEN 4 DÍAS" },
+    update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.T4,
+              edadMin: 12, edadMax: 17, horasPorSemana: 8, dias: ["L","M","X","J"],
+              horaInicio: "18:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "TEEN 4 DÍAS", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+              tier: TipoTierGrupo.T4, edadMin: 12, edadMax: 17, horasPorSemana: 8,
+              dias: ["L","M","X","J"], horaInicio: "18:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  const gTeenFull = await prisma.grupo.upsert({
+    where:  { nombre: "TEEN FULL CON SÁBADOS" },
+    update: { categoria: CategoriaGrupo.TEEN, esCompetitivo: false, tier: TipoTierGrupo.FULL,
+              edadMin: 12, edadMax: 17, horasPorSemana: 10, dias: ["L","M","X","J","S"],
+              horaInicio: "18:00", duracionMinutos: 60, cupo: 15 },
+    create: { nombre: "TEEN FULL CON SÁBADOS", categoria: CategoriaGrupo.TEEN, esCompetitivo: false,
+              tier: TipoTierGrupo.FULL, edadMin: 12, edadMax: 17, horasPorSemana: 10,
+              dias: ["L","M","X","J","S"], horaInicio: "18:00", duracionMinutos: 60, cupo: 15,
+              salonId: salonPrincipal.id },
+  });
+
+  const gdTeen: GDData[] = [
+    { disciplinaId: dTap.id,          dias: ["L","X"], horaInicio: "19:00", duracionMinutos: 60,  horaTexto: "Lun y Mié 19:00–20:00"  },
+    { disciplinaId: dHipHop.id,       dias: ["L","X"], horaInicio: "20:00", duracionMinutos: 60,  horaTexto: "Lun y Mié 20:00–21:00"  },
+    { disciplinaId: dBallet.id,       dias: ["M","J"], horaInicio: "18:00", duracionMinutos: 60,  horaTexto: "Mar y Jue 18:00–19:00"  },
+    { disciplinaId: dContempo.id,     dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00"        },
+  ];
+  for (const gd of gdTeen) await upsertGrupoDisciplina(gTeenFull.id, gd);
+
+  console.log("✅ Grupos regulares creados (EPIC TOTZ, HAPPY FEET, EPIC ONE, TEEN)");
+
+  // ─────────────────────────────────────────────
+  // Grupos — Competición
+  // ─────────────────────────────────────────────
+
+  // ── TINY FULL (6–8 años, 10 hrs/sem) ──────────────────────────────────────
+  const gTiny = await prisma.grupo.upsert({
+    where:  { nombre: "TINY FULL" },
+    update: { categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true, tier: TipoTierGrupo.FULL,
+              edadMin: 6, edadMax: 8, horasPorSemana: 10, dias: ["L","M","X","J","S"],
+              horaInicio: "16:00", duracionMinutos: 60, cupo: 12 },
+    create: { nombre: "TINY FULL", categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true,
+              tier: TipoTierGrupo.FULL, edadMin: 6, edadMax: 8, horasPorSemana: 10,
+              dias: ["L","M","X","J","S"], horaInicio: "16:00", duracionMinutos: 60, cupo: 12,
+              salonId: salonPrincipal.id },
+  });
+  const gdTiny: GDData[] = [
+    { disciplinaId: dBallet.id, dias: ["L","X"], horaInicio: "16:00", duracionMinutos: 60, horaTexto: "Lun y Mié 16:00–17:00" },
+    { disciplinaId: dJazz.id,   dias: ["L","X"], horaInicio: "17:00", duracionMinutos: 60, horaTexto: "Lun y Mié 17:00–18:00" },
+    { disciplinaId: dHipHop.id, dias: ["M","J"], horaInicio: "16:00", duracionMinutos: 60, horaTexto: "Mar y Jue 16:00–17:00" },
+    { disciplinaId: dTap.id,    dias: ["M","J"], horaInicio: "17:00", duracionMinutos: 60, horaTexto: "Mar y Jue 17:00–18:00" },
+    { disciplinaId: dAcro.id,   dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00" },
+  ];
+  for (const gd of gdTiny) await upsertGrupoDisciplina(gTiny.id, gd);
+
+  // ── MINIS FULL (11–12 años, 13 hrs/sem) ───────────────────────────────────
+  const gMinis = await prisma.grupo.upsert({
+    where:  { nombre: "MINIS FULL" },
+    update: { categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true, tier: TipoTierGrupo.FULL,
+              edadMin: 11, edadMax: 12, horasPorSemana: 13, dias: ["L","M","X","J","S"],
+              horaInicio: "16:00", duracionMinutos: 90, cupo: 12 },
+    create: { nombre: "MINIS FULL", categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true,
+              tier: TipoTierGrupo.FULL, edadMin: 11, edadMax: 12, horasPorSemana: 13,
+              dias: ["L","M","X","J","S"], horaInicio: "16:00", duracionMinutos: 90, cupo: 12,
+              salonId: salonPrincipal.id },
+  });
+  const gdMinis: GDData[] = [
+    { disciplinaId: dBallet.id,       dias: ["L","X"], horaInicio: "16:00", duracionMinutos: 90,  horaTexto: "Lun y Mié 16:00–17:30"                   },
+    { disciplinaId: dConditioning.id, dias: ["L","X"], horaInicio: "17:30", duracionMinutos: 30,  horaTexto: "Lun y Mié 17:30–18:00 · Sáb 10:00–12:00" },
+    { disciplinaId: dTap.id,          dias: ["L","X"], horaInicio: "18:00", duracionMinutos: 60,  horaTexto: "Lun y Mié 18:00–19:00"                   },
+    { disciplinaId: dJazz.id,         dias: ["M","J"], horaInicio: "16:00", duracionMinutos: 90,  horaTexto: "Mar y Jue 16:00–17:30"                   },
+    { disciplinaId: dHipHop.id,       dias: ["M","J"], horaInicio: "17:30", duracionMinutos: 60,  horaTexto: "Mar y Jue 17:30–18:30"                   },
+    { disciplinaId: dAcro.id,         dias: ["S"],     horaInicio: "10:00", duracionMinutos: 120, horaTexto: "Sáb 10:00–12:00"                         },
+  ];
+  for (const gd of gdMinis) await upsertGrupoDisciplina(gMinis.id, gd);
+
+  // ── JUNIOR FULL (13–14 años, 14 hrs/sem) ──────────────────────────────────
+  const gJunior = await prisma.grupo.upsert({
+    where:  { nombre: "JUNIOR FULL" },
+    update: { categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true, tier: TipoTierGrupo.FULL,
+              edadMin: 13, edadMax: 14, horasPorSemana: 14, dias: ["L","M","X","J","S"],
+              horaInicio: "17:30", duracionMinutos: 90, cupo: 12 },
+    create: { nombre: "JUNIOR FULL", categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true,
+              tier: TipoTierGrupo.FULL, edadMin: 13, edadMax: 14, horasPorSemana: 14,
+              dias: ["L","M","X","J","S"], horaInicio: "17:30", duracionMinutos: 90, cupo: 12,
+              salonId: salonPrincipal.id },
+  });
+  const gdJunior: GDData[] = [
+    { disciplinaId: dJazz.id,         dias: ["L","X"], horaInicio: "17:30", duracionMinutos: 90,  horaTexto: "Lun y Mié 17:30–19:00"                   },
+    { disciplinaId: dHipHop.id,       dias: ["L","X"], horaInicio: "19:00", duracionMinutos: 60,  horaTexto: "Lun y Mié 19:00–20:00"                   },
+    { disciplinaId: dConditioning.id, dias: ["L","X"], horaInicio: "20:00", duracionMinutos: 30,  horaTexto: "Lun y Mié 20:00–20:30"                   },
+    { disciplinaId: dTap.id,          dias: ["M","J"], horaInicio: "18:00", duracionMinutos: 60,  horaTexto: "Mar y Jue 18:00–19:00"                   },
+    { disciplinaId: dBallet.id,       dias: ["M","J"], horaInicio: "19:00", duracionMinutos: 90,  horaTexto: "Mar y Jue 19:00–20:30"                   },
+    { disciplinaId: dTecnica.id,      dias: ["S"],     horaInicio: "10:00", duracionMinutos: 60,  horaTexto: "Sáb 10:00–11:00"                         },
+    { disciplinaId: dAcro.id,         dias: ["S"],     horaInicio: "11:00", duracionMinutos: 60,  horaTexto: "Sáb 11:00–12:00"                         },
+    { disciplinaId: dContempo.id,     dias: ["S"],     horaInicio: "12:00", duracionMinutos: 60,  horaTexto: "Sáb 12:00–13:00"                         },
+  ];
+  for (const gd of gdJunior) await upsertGrupoDisciplina(gJunior.id, gd);
+
+  // ── SENIOR FULL (15+ años, 15.5 hrs/sem) ──────────────────────────────────
+  const gSenior = await prisma.grupo.upsert({
+    where:  { nombre: "SENIOR FULL" },
+    update: { categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true, tier: TipoTierGrupo.FULL,
+              edadMin: 15, edadMax: 99, horasPorSemana: 15.5, dias: ["L","M","X","J","S"],
+              horaInicio: "17:00", duracionMinutos: 90, cupo: 12 },
+    create: { nombre: "SENIOR FULL", categoria: CategoriaGrupo.COMPETICION, esCompetitivo: true,
+              tier: TipoTierGrupo.FULL, edadMin: 15, edadMax: 99, horasPorSemana: 15.5,
+              dias: ["L","M","X","J","S"], horaInicio: "17:00", duracionMinutos: 90, cupo: 12,
+              salonId: salonPrincipal.id },
+  });
+  const gdSenior: GDData[] = [
+    { disciplinaId: dHipHop.id,       dias: ["L","X"], horaInicio: "18:00", duracionMinutos: 60,  horaTexto: "Lun y Mié 18:00–19:00"  },
+    { disciplinaId: dBallet.id,       dias: ["L","X"], horaInicio: "19:00", duracionMinutos: 90,  horaTexto: "Lun y Mié 19:00–20:30"  },
+    { disciplinaId: dJazz.id,         dias: ["M","J"], horaInicio: "18:00", duracionMinutos: 90,  horaTexto: "Mar y Jue 18:00–19:30"  },
+    { disciplinaId: dTap.id,          dias: ["M","J"], horaInicio: "19:30", duracionMinutos: 60,  horaTexto: "Mar y Jue 19:30–20:30"  },
+    { disciplinaId: dPuntas.id,       dias: ["V"],     horaInicio: "16:00", duracionMinutos: 120, horaTexto: "Vie 16:00–18:00"        },
+    { disciplinaId: dAcro.id,         dias: ["S"],     horaInicio: "09:30", duracionMinutos: 90,  horaTexto: "Sáb 09:30–11:00"        },
+    { disciplinaId: dContempo.id,     dias: ["S"],     horaInicio: "11:00", duracionMinutos: 60,  horaTexto: "Sáb 11:00–12:00"        },
+    { disciplinaId: dTecnica.id,      dias: ["S"],     horaInicio: "12:00", duracionMinutos: 60,  horaTexto: "Sáb 12:00–13:00"        },
+  ];
+  for (const gd of gdSenior) await upsertGrupoDisciplina(gSenior.id, gd);
+
+  console.log("✅ Grupos de competición creados (TINY, MINIS, JUNIOR, SENIOR)");
+
+  // ─────────────────────────────────────────────
+  // Tarifas de mensualidad (upsert por grupoId)
+  // ─────────────────────────────────────────────
+
+  const tarifas: Array<{ grupoId: string; mensualidad: number; preseason: number; horas: number }> = [
+    // Regulares
+    { grupoId: gTotzBase.id, mensualidad: 700,  preseason: 500, horas: 2   },
+    { grupoId: gHF2.id,      mensualidad: 750,  preseason: 500, horas: 4   },
+    { grupoId: gHF3.id,      mensualidad: 900,  preseason: 500, horas: 6   },
+    { grupoId: gHF4.id,      mensualidad: 1000, preseason: 500, horas: 8   },
+    { grupoId: gHFFull.id,   mensualidad: 1100, preseason: 500, horas: 10  },
+    { grupoId: gEO1.id,      mensualidad: 700,  preseason: 500, horas: 2   },
+    { grupoId: gEO2.id,      mensualidad: 900,  preseason: 500, horas: 4   },
+    { grupoId: gEO3.id,      mensualidad: 1050, preseason: 500, horas: 6   },
+    { grupoId: gEO4.id,      mensualidad: 1200, preseason: 500, horas: 8   },
+    { grupoId: gEOFull.id,   mensualidad: 1400, preseason: 500, horas: 10  },
+    { grupoId: gTeen2.id,    mensualidad: 900,  preseason: 500, horas: 4   },
+    { grupoId: gTeen4.id,    mensualidad: 1200, preseason: 500, horas: 8   },
+    { grupoId: gTeenFull.id, mensualidad: 1500, preseason: 500, horas: 10  },
+    // Competición
+    { grupoId: gTiny.id,     mensualidad: 1500, preseason: 500, horas: 10  },
+    { grupoId: gMinis.id,    mensualidad: 1500, preseason: 500, horas: 13  },
+    { grupoId: gJunior.id,   mensualidad: 1500, preseason: 500, horas: 14  },
+    { grupoId: gSenior.id,   mensualidad: 1500, preseason: 500, horas: 15.5 },
+  ];
+
+  for (const t of tarifas) {
+    await prisma.tarifaMensualidad.upsert({
+      where:  { grupoId: t.grupoId },
+      update: { precioMensualidad: t.mensualidad, precioPreseason: t.preseason, horasPorSemana: t.horas },
+      create: { grupoId: t.grupoId, precioMensualidad: t.mensualidad, precioPreseason: t.preseason, horasPorSemana: t.horas },
+    });
+  }
+
+  console.log("✅ Tarifas de mensualidad creadas (16 grupos)");
 
   // ─────────────────────────────────────────────
   // Resumen
@@ -556,6 +767,9 @@ async function main() {
   console.log("  Maestro    → roberto@epicmotion.com   / maestro123");
   console.log("  Padre      → juan@epicmotion.com      / padre123");
   console.log("  Padre      → ana@epicmotion.com       / padre123");
+  console.log("─────────────────────────────────────────────");
+  console.log("Grupos regulares: EPIC TOTZ · HAPPY FEET ×4 · EPIC ONE ×5 · TEEN ×3");
+  console.log("Grupos competición: TINY FULL · MINIS FULL · JUNIOR FULL · SENIOR FULL");
   console.log("─────────────────────────────────────────────");
 }
 

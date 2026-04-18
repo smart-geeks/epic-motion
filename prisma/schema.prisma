@@ -110,6 +110,23 @@ enum MotivoUniforme {
   OTRO
 }
 
+enum CategoriaGrupo {
+  EPIC_TOTZ
+  HAPPY_FEET
+  EPIC_ONE
+  TEEN
+  COMPETICION
+}
+
+enum TipoTierGrupo {
+  BASE  // EPIC TOTZ (paquete único sin selección)
+  T1    // 1 clase/disciplina
+  T2    // 2 clases/disciplinas
+  T3    // 3 clases/disciplinas
+  T4    // 4 clases/disciplinas
+  FULL  // máximo disponible para la categoría
+}
+
 // ─────────────────────────────────────────────
 // Modelos
 // ─────────────────────────────────────────────
@@ -133,6 +150,7 @@ model Usuario {
   celularConyuge         String?
   emailConyuge           String?
   telefonoTrabajoConyuge String?
+  domicilio              String?
 
   // Relaciones
   alumnas              Alumna[]         @relation("PadreAlumnas")
@@ -159,10 +177,7 @@ model Alumna {
   fechaInscripcion DateTime      @default(now())
 
   // Datos del expediente (capturados en el wizard de inscripción)
-  domicilio            String?
   institucionEducativa String?
-  celular              String?
-  emailAlumna          String?
   otraAcademia         String?  // nombre de academia anterior; null si ninguna
   enfermedadLesion     String?  // descripción; null si ninguna
   canalContacto        String?  // "WHATSAPP" | "EMAIL" | "TELEFONO"
@@ -200,7 +215,7 @@ model Salon {
 // Disciplina: Ballet, Hip-Hop, Tap, Jazz, Acro…
 model Disciplina {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre      String
+  nombre      String   @unique
   descripcion String?
   color       String?  // hex para badges en UI, ej. "#F8BBD0"
   activo      Boolean  @default(true)
@@ -212,18 +227,21 @@ model Disciplina {
 // Grupo: unidad comercial de inscripción (SENIOR FULL, TINY FULL, etc.)
 // En el futuro contendrá una FK a Clase para la operación diaria.
 model Grupo {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre          String
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre          String         @unique
+  categoria       CategoriaGrupo @default(COMPETICION)
+  esCompetitivo   Boolean        @default(false)
+  tier            TipoTierGrupo  @default(FULL)
   edadMin         Int
   edadMax         Int
-  horasPorSemana  Decimal  @db.Decimal(4, 1)
-  dias            String[] // ["L","M","X","J","V","S","D"]
-  horaInicio      String   // "16:00"
-  duracionMinutos Int      // duración por sesión, configurable por el admin
+  horasPorSemana  Decimal        @db.Decimal(4, 1)
+  dias            String[]       // días principales del grupo ["L","M","X","J","V","S","D"]
+  horaInicio      String         // "16:00"
+  duracionMinutos Int            // duración de sesión estándar (referencia)
   cupo            Int
-  activo          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  activo          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   salonId    String?  @db.Uuid
   salon      Salon?   @relation(fields: [salonId], references: [id])
@@ -237,11 +255,18 @@ model Grupo {
 }
 
 // Tabla pivot Grupo ↔ Disciplina
+// Cada fila representa una disciplina específica dentro de un grupo, con su propio horario.
 model GrupoDisciplina {
   grupoId      String     @db.Uuid
   grupo        Grupo      @relation(fields: [grupoId], references: [id])
   disciplinaId String     @db.Uuid
   disciplina   Disciplina @relation(fields: [disciplinaId], references: [id])
+
+  // Horario de esta disciplina dentro del grupo (puede diferir del horario principal del grupo)
+  dias            String[] @default([])  // ["L","X"] = Lunes y Miércoles
+  horaInicio      String   @default("") // "17:00"
+  duracionMinutos Int      @default(60)
+  horaTexto       String   @default("") // "Lun y Mié 17:00–18:00" — para display en mini-ticket
 
   @@id([grupoId, disciplinaId])
 }

@@ -1,24 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, CheckCheck, UserPlus } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Check, CheckCheck, Copy, MessageCircle, Printer, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
 import { useRouter } from 'next/navigation';
 
+const TicketPago = dynamic(
+  () => import('@/components/inscripciones/TicketPago'),
+  { ssr: false }
+);
+
 export default function Paso3Confirmacion() {
-  const { resultado, alumna, grupoSeleccionado, esReinscripcion, resetWizard } =
-    useWizardInscripcion();
+  const {
+    resultado, alumna, grupoSeleccionado, esReinscripcion, resetWizard,
+    tutor, cuotaInscripcion, cicloEscolar, pago, pdfUrl,
+  } = useWizardInscripcion();
   const router = useRouter();
   const [copiado, setCopiado] = useState(false);
 
-  // Usar optional chaining: resultado puede llegar null brevemente por el orden de los set()
-  // del store. El paso 3 siempre muestra el mensaje de éxito.
   const emailPadre       = resultado?.emailPadre       ?? '';
   const passwordTemporal = resultado?.passwordTemporal ?? '';
+  const alumnaId         = resultado?.alumnaId         ?? '';
   const mostrarCredenciales = !esReinscripcion && !!passwordTemporal;
+
+  const tutorNombre = tutor.nombreMadre || tutor.nombrePadre;
+  const precioMensualidad = grupoSeleccionado?.tarifa?.precioMensualidad ?? 0;
 
   const copiarCredenciales = async () => {
     const texto = `Email: ${emailPadre}\nContraseña: ${passwordTemporal}`;
@@ -28,8 +38,21 @@ export default function Paso3Confirmacion() {
     setTimeout(() => setCopiado(false), 3000);
   };
 
-  const nueva = () => {
-    resetWizard();
+  const imprimirTicket = () => {
+    window.print();
+  };
+
+  const enviarPorWhatsApp = () => {
+    const texto =
+      `¡Hola! Bienvenida a Epic Motion ✨\n` +
+      `Tus credenciales de acceso al portal son:\n` +
+      `📧 Email: ${emailPadre}\n` +
+      `🔑 Contraseña: ${passwordTemporal}\n\n` +
+      `📄 Tu PDF de inscripción (resumen + reglamento + horario):\n` +
+      `${pdfUrl || 'Generando...'}\n\n` +
+      `👉 *Importante*: Te recomendamos cambiar tu contraseña en el primer inicio de sesión.\n\n` +
+      `Cualquier duda quedo a tus órdenes.`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
   return (
@@ -112,17 +135,37 @@ export default function Paso3Confirmacion() {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={imprimirTicket}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-sm border border-epic-gold/30 hover:bg-epic-gold/10 transition-colors font-inter text-sm text-epic-gold"
+            >
+              <Printer size={14} />
+              Imprimir Ticket
+            </button>
+            <button
+              type="button"
+              onClick={copiarCredenciales}
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-sm border border-epic-gold/30 hover:bg-epic-gold/10 transition-colors font-inter text-sm text-epic-gold"
+            >
+              {copiado ? <CheckCheck size={14} /> : <Copy size={14} />}
+              {copiado ? 'Copiado' : 'Copiar credenciales'}
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={copiarCredenciales}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-sm border border-epic-gold/30 hover:bg-epic-gold/10 transition-colors font-inter text-sm text-epic-gold"
+            onClick={enviarPorWhatsApp}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-sm bg-green-600/20 border border-green-500/30 hover:bg-green-600/30 transition-colors font-inter text-sm text-green-500 hover:text-green-400"
           >
-            {copiado ? <CheckCheck size={14} /> : <Copy size={14} />}
-            {copiado ? 'Copiado' : 'Copiar credenciales'}
+            <MessageCircle size={14} />
+            Enviar por WhatsApp
+            {pdfUrl && <span className="text-xs opacity-70">+ PDF</span>}
           </button>
 
-          <p className="font-inter text-xs text-amber-600 dark:text-amber-400 text-center">
-            Comparte estas credenciales con el padre/tutor ahora.
+          <p className="font-inter text-xs text-amber-600 dark:text-amber-400 text-center mt-2">
+            Comparte estas credenciales y adjunta el PDF del Reglamento.
             <br />
             La contraseña no se volverá a mostrar.
           </p>
@@ -135,13 +178,13 @@ export default function Paso3Confirmacion() {
           variante="secondary"
           tamano="lg"
           fullWidth
-          onClick={nueva}
+          onClick={resetWizard}
         >
           Nueva inscripción
         </Button>
-        <Button 
-          tamano="lg" 
-          fullWidth 
+        <Button
+          tamano="lg"
+          fullWidth
           onClick={() => {
             resetWizard();
             router.push('/admin/alumnas');
@@ -149,6 +192,23 @@ export default function Paso3Confirmacion() {
         >
           Finalizar
         </Button>
+      </div>
+
+      {/* ── Ticket oculto para impresión ──────────────────────────────── */}
+      <div id="ticket-container" className="invisible fixed top-0 left-0">
+        {alumnaId && grupoSeleccionado && (
+          <TicketPago
+            alumna={alumna}
+            grupoNombre={grupoSeleccionado.nombre}
+            disciplinas={grupoSeleccionado.disciplinas}
+            cuotaInscripcion={cuotaInscripcion}
+            precioMensualidad={precioMensualidad}
+            pago={pago}
+            tutorNombre={tutorNombre}
+            cicloEscolar={cicloEscolar}
+            alumnaId={alumnaId}
+          />
+        )}
       </div>
     </div>
   );
