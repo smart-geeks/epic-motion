@@ -66,7 +66,7 @@ export interface GrupoCard {
   tarifa: {
     id: string;
     precioMensualidad: number;
-    precioPreseason: number;
+    precioPreseason: number | null;
   } | null;
 }
 

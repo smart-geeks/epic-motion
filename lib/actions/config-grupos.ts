@@ -1,9 +1,60 @@
 'use server';
 
+import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { withRLS } from '@/lib/prisma-rls';
+import { calcularMonto } from '@/lib/logic/precios';
+
+export type ProfesorData = { id: string; nombre: string; apellido: string };
+
+// ─── Zod schemas (validan el boundary cliente→servidor) ────────────────────
+
+const zUUID = z.string().min(1);
+
+const UpdateGrupoSchema = z
+  .object({
+    id: zUUID,
+    nombre: z.string().min(1, 'El nombre es obligatorio.').max(100),
+    cupo: z.number().int().min(1).max(200),
+    edadMin: z.number().int().min(0).max(99),
+    edadMax: z.number().int().min(1).max(100),
+    tier: z.enum(['BASE', 'T1', 'T2', 'T3', 'T4', 'FULL']),
+    idGrupoSiguiente: z.string().nullable(),
+    activo: z.boolean(),
+    descripcion: z.string().max(500).nullable(),
+    profesorId: z.string().nullable(),
+  })
+  .refine((d) => d.edadMin < d.edadMax, {
+    message: 'La edad mínima debe ser menor a la máxima.',
+    path: ['edadMax'],
+  });
+
+const DisciplinaRowSchema = z.object({
+  disciplinaId: zUUID,
+  dias: z.array(z.enum(['L', 'M', 'X', 'J', 'V', 'S', 'D'])).min(1),
+  horaInicio: z.string().regex(/^\d{2}:\d{2}$/),
+  duracionMinutos: z.number().int().positive(),
+});
+
+const CrearGrupoSchema = z
+  .object({
+    nombre: z.string().min(1, 'El nombre es obligatorio.').max(100),
+    categoria: z.enum(['EPIC_TOTZ', 'HAPPY_FEET', 'EPIC_ONE', 'TEEN', 'COMPETICION']),
+    edadMin: z.number().int().min(0).max(99),
+    edadMax: z.number().int().min(1).max(100),
+    cupo: z.number().int().min(1).max(200),
+    disciplinas: z.array(DisciplinaRowSchema),
+    precioMensualidad: z.number().min(0),
+    activo: z.boolean(),
+    profesorId: z.string().nullable().optional(),
+    descripcion: z.string().max(500).nullable().optional(),
+  })
+  .refine((d) => d.edadMin < d.edadMax, {
+    message: 'La edad mínima debe ser menor a la máxima.',
+    path: ['edadMax'],
+  });
 
 // Calcula la edad al 1° de agosto del ciclo activo (misma lógica que el wizard)
 function calcularEdadCiclo(fechaNacimiento: Date): number {
@@ -14,6 +65,26 @@ function calcularEdadCiclo(fechaNacimiento: Date): number {
   const dm = agosto.getMonth() - fechaNacimiento.getMonth();
   if (dm < 0 || (dm === 0 && agosto.getDate() < fechaNacimiento.getDate())) edad--;
   return edad;
+}
+
+// ─────────────────────────────────────────────
+// 0. Listar profesores activos
+// ─────────────────────────────────────────────
+
+export async function getProfesoresActivos(): Promise<{ id: string; nombre: string; apellido: string }[]> {
+  const session = await getServerSession(authOptions);
+  try {
+    return await withRLS(session, (tx) =>
+      tx.usuario.findMany({
+        where: { rol: 'MAESTRO', activo: true },
+        select: { id: true, nombre: true, apellido: true },
+        orderBy: [{ nombre: 'asc' }],
+      }),
+    );
+  } catch (err) {
+    console.error('[getProfesoresActivos]', err);
+    return [];
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -28,9 +99,17 @@ interface UpdateGrupoInput {
   edadMax: number;
   tier: string;
   idGrupoSiguiente: string | null;
+  activo: boolean;
+  descripcion: string | null;
+  profesorId: string | null;
 }
 
 export async function updateGrupoConfig(input: UpdateGrupoInput) {
+  const parsed = UpdateGrupoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos.' };
+  }
+
   const session = await getServerSession(authOptions);
 
   try {
@@ -44,9 +123,13 @@ export async function updateGrupoConfig(input: UpdateGrupoInput) {
           edadMax: input.edadMax,
           tier: input.tier as import('@/app/generated/prisma/client').TipoTierGrupo,
           idGrupoSiguiente: input.idGrupoSiguiente,
+          activo: input.activo,
+          descripcion: input.descripcion,
+          profesorId: input.profesorId,
         },
       }),
     );
+    revalidatePath('/admin/configuracion');
     return { ok: true };
   } catch (err) {
     console.error('[updateGrupoConfig]', err);
@@ -59,6 +142,10 @@ export async function updateGrupoConfig(input: UpdateGrupoInput) {
 // ─────────────────────────────────────────────
 
 export async function toggleInvitacionCompetencia(alumnaId: string) {
+  if (!zUUID.safeParse(alumnaId).success) {
+    return { ok: false, error: 'ID de alumna inválido.' };
+  }
+
   const session = await getServerSession(authOptions);
 
   try {
@@ -78,6 +165,7 @@ export async function toggleInvitacionCompetencia(alumnaId: string) {
       }),
     );
 
+    revalidatePath('/admin/configuracion');
     return { ok: true, nuevoValor: !alumna.invitadaCompetencia };
   } catch (err) {
     console.error('[toggleInvitacionCompetencia]', err);
@@ -99,6 +187,9 @@ export async function reasignarAlumna(
   grupoDestinoId: string,
   forzar = false,
 ): Promise<ReasignacionResult> {
+  const ids = z.object({ alumnaId: zUUID, grupoDestinoId: zUUID }).safeParse({ alumnaId, grupoDestinoId });
+  if (!ids.success) return { ok: false, error: 'IDs inválidos.' };
+
   const session = await getServerSession(authOptions);
 
   try {
@@ -151,6 +242,7 @@ export async function reasignarAlumna(
       }),
     );
 
+    revalidatePath('/admin/configuracion');
     return { ok: true };
   } catch (err) {
     console.error('[reasignarAlumna]', err);
@@ -190,8 +282,12 @@ export async function setAlumnaDisciplinasEnGrupo(
   alumnaId: string,
   grupoId: string,
   disciplinaIds: string[],
-  montoNuevo: number,
 ): Promise<{ ok: boolean; error?: string }> {
+  const v = z
+    .object({ alumnaId: zUUID, grupoId: zUUID, disciplinaIds: z.array(zUUID) })
+    .safeParse({ alumnaId, grupoId, disciplinaIds });
+  if (!v.success) return { ok: false, error: 'Datos inválidos.' };
+
   const session = await getServerSession(authOptions);
 
   try {
@@ -204,6 +300,17 @@ export async function setAlumnaDisciplinasEnGrupo(
           data: disciplinaIds.map((disciplinaId) => ({ alumnaId, grupoId, disciplinaId })),
         });
       }
+
+      // Calcular el monto proporcional desde BD (fuente de verdad: tarifa + total disciplinas del grupo)
+      const [tarifa, totalDiscs] = await Promise.all([
+        tx.tarifaMensualidad.findUnique({ where: { grupoId } }),
+        tx.grupoDisciplina.count({ where: { grupoId } }),
+      ]);
+      const montoNuevo = calcularMonto(
+        tarifa?.precioMensualidad.toNumber() ?? 0,
+        totalDiscs,
+        disciplinaIds.length,
+      );
 
       // Actualizar el cargo mensual pendiente más reciente
       const cargo = await tx.cargo.findFirst({
@@ -229,6 +336,7 @@ export async function setAlumnaDisciplinasEnGrupo(
       }
     });
 
+    revalidatePath('/admin/configuracion');
     return { ok: true };
   } catch (err) {
     console.error('[setAlumnaDisciplinasEnGrupo]', err);
@@ -250,6 +358,7 @@ export async function removerAlumnaDeGrupo(alumnaId: string) {
         data: { grupoId: null },
       }),
     );
+    revalidatePath('/admin/configuracion');
     return { ok: true };
   } catch (err) {
     console.error('[removerAlumnaDeGrupo]', err);
@@ -270,10 +379,44 @@ export async function removerDisciplinaDeGrupo(grupoId: string, disciplinaId: st
         where: { grupoId_disciplinaId: { grupoId, disciplinaId } },
       }),
     );
+    revalidatePath('/admin/configuracion');
     return { ok: true };
   } catch (err) {
     console.error('[removerDisciplinaDeGrupo]', err);
     return { ok: false, error: 'Error al remover la disciplina.' };
+  }
+}
+
+// ─────────────────────────────────────────────
+// 9a. Tarifa por categoría y tier exacto
+// ─────────────────────────────────────────────
+
+export async function getTarifaPorTier(
+  categoria: string,
+  tier: string,
+): Promise<{ precioMensualidad: number } | null> {
+  const session = await getServerSession(authOptions);
+
+  try {
+    const grupo = await withRLS(session, (tx) =>
+      tx.grupo.findFirst({
+        where: {
+          categoria: categoria as import('@/app/generated/prisma/client').CategoriaGrupo,
+          tier: tier as import('@/app/generated/prisma/client').TipoTierGrupo,
+          activo: true,
+          tarifa: { isNot: null },
+        },
+        select: { tarifa: { select: { precioMensualidad: true } } },
+      }),
+    );
+
+    if (grupo?.tarifa) {
+      return { precioMensualidad: grupo.tarifa.precioMensualidad.toNumber() };
+    }
+    return null;
+  } catch (err) {
+    console.error('[getTarifaPorTier]', err);
+    return null;
   }
 }
 
@@ -283,7 +426,7 @@ export async function removerDisciplinaDeGrupo(grupoId: string, disciplinaId: st
 
 export async function getTarifaReferencia(
   categoria: string,
-): Promise<{ precioMensualidad: number; precioPreseason: number } | null> {
+): Promise<{ precioMensualidad: number; precioPreseason: number | null } | null> {
   const session = await getServerSession(authOptions);
 
   try {
@@ -303,7 +446,7 @@ export async function getTarifaReferencia(
     if (grupo?.tarifa) {
       return {
         precioMensualidad: grupo.tarifa.precioMensualidad.toNumber(),
-        precioPreseason: grupo.tarifa.precioPreseason.toNumber(),
+        precioPreseason: grupo.tarifa.precioPreseason?.toNumber() ?? null,
       };
     }
 
@@ -322,7 +465,7 @@ export async function getTarifaReferencia(
     if (fallback?.tarifa) {
       return {
         precioMensualidad: fallback.tarifa.precioMensualidad.toNumber(),
-        precioPreseason: fallback.tarifa.precioPreseason.toNumber(),
+        precioPreseason: fallback.tarifa.precioPreseason?.toNumber() ?? null,
       };
     }
 
@@ -366,33 +509,76 @@ export async function getGrupoDisciplinasCompletas(grupoId: string): Promise<
 // 11. Crear nuevo grupo
 // ─────────────────────────────────────────────
 
+// Sólo datos crudos del cliente — toda lógica de negocio se resuelve aquí
 interface DisciplinaRowInput {
   disciplinaId: string;
   dias: string[];
   horaInicio: string;
   duracionMinutos: number;
-  horaTexto: string;
 }
 
 interface CrearGrupoInput {
   nombre: string;
   categoria: string;
-  esCompetitivo: boolean;
-  tier: string;
   edadMin: number;
   edadMax: number;
   cupo: number;
   disciplinas: DisciplinaRowInput[];
   precioMensualidad: number;
-  precioPreseason: number;
+  activo: boolean;
+  profesorId?: string | null;
+  descripcion?: string | null;
+}
+
+export interface ResumenGrupoCreado {
+  nombre: string;
+  tier: string;
+  numDisciplinas: number;
+  precioMensualidad: number;
+  activo: boolean;
+}
+
+// Tier derivado del número de disciplinas (regla de negocio)
+function derivarTier(numDisciplinas: number): import('@/app/generated/prisma/client').TipoTierGrupo {
+  if (numDisciplinas <= 0) return 'BASE';
+  if (numDisciplinas === 1) return 'T1';
+  if (numDisciplinas === 2) return 'T2';
+  if (numDisciplinas === 3) return 'T3';
+  if (numDisciplinas === 4) return 'T4';
+  return 'FULL';
+}
+
+// Texto de horario legible almacenado en BD para evitar recalcularlo en lecturas
+function buildHoraTexto(dias: string[], horaInicio: string, duracionMinutos: number): string {
+  if (!dias.length || !horaInicio) return '';
+  const DIA_LARGO: Record<string, string> = {
+    L: 'Lun', M: 'Mar', X: 'Mié', J: 'Jue', V: 'Vie', S: 'Sáb', D: 'Dom',
+  };
+  const [h, m] = horaInicio.split(':').map(Number);
+  const finTotal = h * 60 + m + duracionMinutos;
+  const horaFin = `${String(Math.floor(finTotal / 60)).padStart(2, '0')}:${String(finTotal % 60).padStart(2, '0')}`;
+  const labels = dias.map((d) => DIA_LARGO[d]).filter(Boolean);
+  const diaStr =
+    labels.length === 1 ? labels[0]
+    : labels.length === 2 ? `${labels[0]} y ${labels[1]}`
+    : `${labels.slice(0, -1).join(', ')} y ${labels.at(-1)}`;
+  return `${diaStr} ${horaInicio}–${horaFin}`;
 }
 
 export async function crearGrupo(
   input: CrearGrupoInput,
-): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; id: string; resumen: ResumenGrupoCreado } | { ok: false; error: string }> {
+  const parsed = CrearGrupoSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos.' };
+  }
+
   const session = await getServerSession(authOptions);
 
   try {
+    // Lógica de negocio — el cliente sólo manda datos crudos
+    const tier = derivarTier(input.disciplinas.length);
+    const esCompetitivo = input.categoria === 'COMPETICION';
     const primera = input.disciplinas[0];
     const horasPorSemana = input.disciplinas.reduce(
       (sum, d) => sum + (d.duracionMinutos / 60) * d.dias.length,
@@ -404,8 +590,8 @@ export async function crearGrupo(
         data: {
           nombre: input.nombre,
           categoria: input.categoria as import('@/app/generated/prisma/client').CategoriaGrupo,
-          esCompetitivo: input.esCompetitivo,
-          tier: input.tier as import('@/app/generated/prisma/client').TipoTierGrupo,
+          esCompetitivo,
+          tier,
           edadMin: input.edadMin,
           edadMax: input.edadMax,
           horasPorSemana,
@@ -413,7 +599,9 @@ export async function crearGrupo(
           horaInicio: primera?.horaInicio ?? '08:00',
           duracionMinutos: primera?.duracionMinutos ?? 60,
           cupo: input.cupo,
-          activo: true,
+          activo: input.activo,
+          descripcion: input.descripcion ?? null,
+          profesorId: input.profesorId ?? null,
         },
       });
 
@@ -425,16 +613,23 @@ export async function crearGrupo(
             dias: d.dias,
             horaInicio: d.horaInicio,
             duracionMinutos: d.duracionMinutos,
-            horaTexto: d.horaTexto,
+            horaTexto: buildHoraTexto(d.dias, d.horaInicio, d.duracionMinutos),
           })),
         });
       }
+
+      // precioPreseason se toma de Configuracion; si no existe se omite (campo nullable en DB)
+      const configPreseason = await tx.configuracion.findUnique({
+        where: { clave: 'precio_preseason_default' },
+        select: { valor: true },
+      });
+      const precioPreseason = configPreseason ? Number(configPreseason.valor) : null;
 
       await tx.tarifaMensualidad.create({
         data: {
           grupoId: g.id,
           precioMensualidad: input.precioMensualidad,
-          precioPreseason: input.precioPreseason,
+          ...(precioPreseason !== null && { precioPreseason }),
           horasPorSemana,
           activo: true,
         },
@@ -444,7 +639,17 @@ export async function crearGrupo(
     });
 
     revalidatePath('/admin/configuracion');
-    return { ok: true, id: grupoId };
+    return {
+      ok: true,
+      id: grupoId,
+      resumen: {
+        nombre: input.nombre,
+        tier,
+        numDisciplinas: input.disciplinas.length,
+        precioMensualidad: input.precioMensualidad,
+        activo: input.activo,
+      },
+    };
   } catch (err) {
     console.error('[crearGrupo]', err);
     return { ok: false, error: 'Error al crear el grupo.' };

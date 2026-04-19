@@ -14,8 +14,11 @@ export interface GrupoConfigData {
   cupo: number;
   inscritos: number;
   activo: boolean;
+  descripcion: string | null;
   idGrupoSiguiente: string | null;
   grupoSiguienteNombre: string | null;
+  profesorId: string | null;
+  profesorNombre: string | null;
   disciplinas: { id: string; nombre: string; color: string | null; horaTexto: string }[];
   tarifa: { precioMensualidad: number } | null;
 }
@@ -34,6 +37,7 @@ export async function GET() {
           disciplinasGrupo: { include: { disciplina: true } },
           tarifa: { select: { precioMensualidad: true } },
           grupoSiguiente: { select: { nombre: true } },
+          profesor: { select: { nombre: true, apellido: true } },
           _count: { select: { disciplinas: true } },
         },
         orderBy: [{ categoria: 'asc' }, { nombre: 'asc' }],
@@ -51,8 +55,11 @@ export async function GET() {
       cupo: g.cupo,
       inscritos: g._count.disciplinas,
       activo: g.activo,
+      descripcion: g.descripcion,
       idGrupoSiguiente: g.idGrupoSiguiente,
       grupoSiguienteNombre: g.grupoSiguiente?.nombre ?? null,
+      profesorId: g.profesorId,
+      profesorNombre: g.profesor ? `${g.profesor.nombre} ${g.profesor.apellido}` : null,
       disciplinas: g.disciplinasGrupo.map((gd) => ({
         id: gd.disciplina.id,
         nombre: gd.disciplina.nombre,

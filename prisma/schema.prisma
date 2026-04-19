@@ -124,6 +124,11 @@ enum CategoriaGrupo {
   COMPETICION
 }
 
+enum TipoCursoEspecial {
+  VACACIONES   // Campus o taller en períodos de vacaciones escolares
+  CURSO_VERANO // Programa intensivo de verano (Julio–Agosto)
+}
+
 enum TipoTierGrupo {
   BASE  // EPIC TOTZ (paquete único sin selección)
   T1    // 1 clase/disciplina
@@ -171,6 +176,7 @@ model Usuario {
   notasComoMaestro     Nota[]           @relation("MaestroNotas")
   notasAprobadas       Nota[]           @relation("AdminAprobadorNotas")
   gruposComoProfesor   Grupo[]          @relation("ProfesorGrupos")
+  cursosEspeciales     CursoEspecial[]  @relation("ProfesorCursosEspeciales")
 }
 
 model Alumna {
@@ -203,6 +209,7 @@ model Alumna {
   logros              Logro[]
   clasesPrivadas      ClasePrivada[]
   disciplinasInscritas AlumnaDisciplina[]
+  cursosEspeciales     InscripcionCursoEspecial[]
 }
 
 model Salon {
@@ -250,6 +257,7 @@ model Grupo {
   duracionMinutos Int            // duración de sesión estándar (referencia)
   cupo            Int
   activo          Boolean        @default(true)
+  descripcion     String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -306,7 +314,7 @@ model AlumnaDisciplina {
 model TarifaMensualidad {
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   precioMensualidad Decimal  @db.Decimal(10, 2)
-  precioPreseason   Decimal  @db.Decimal(10, 2)
+  precioPreseason   Decimal? @db.Decimal(10, 2)
   horasPorSemana    Decimal  @db.Decimal(4, 1) // referencia display
   activo            Boolean  @default(true)
   createdAt         DateTime @default(now())
@@ -625,4 +633,44 @@ model Configuracion {
   clave       String  @unique
   valor       String
   descripcion String?
+}
+
+// ─────────────────────────────────────────────
+// Cursos Especiales: Vacaciones & Verano
+// Tabla separada de Grupo — programas de tiempo limitado con fechas definidas.
+// ─────────────────────────────────────────────
+
+model CursoEspecial {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre          String            @unique
+  tipo            TipoCursoEspecial
+  descripcion     String?           // notas internas de operación
+  fechaInicio     DateTime
+  fechaFin        DateTime
+  cupo            Int
+  precio          Decimal           @db.Decimal(10, 2)
+  activo          Boolean           @default(false) // false = inscripciones cerradas
+  diasSemana      String[]          // ["L","M","X","J","V"]
+  horaInicio      String            // "09:00"
+  duracionMinutos Int               @default(60)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  profesorId String?  @db.Uuid
+  profesor   Usuario? @relation("ProfesorCursosEspeciales", fields: [profesorId], references: [id])
+
+  inscritas InscripcionCursoEspecial[]
+}
+
+// Tabla pivot Alumna ↔ CursoEspecial
+model InscripcionCursoEspecial {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fechaInscripcion DateTime      @default(now())
+
+  alumnaId String        @db.Uuid
+  alumna   Alumna        @relation(fields: [alumnaId], references: [id])
+  cursoId  String        @db.Uuid
+  curso    CursoEspecial @relation(fields: [cursoId], references: [id])
+
+  @@unique([alumnaId, cursoId])
 }

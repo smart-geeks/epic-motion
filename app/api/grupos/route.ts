@@ -62,7 +62,7 @@ export async function GET() {
         ? {
             id: g.tarifa.id,
             precioMensualidad: g.tarifa.precioMensualidad.toNumber(),
-            precioPreseason: g.tarifa.precioPreseason.toNumber(),
+            precioPreseason: g.tarifa.precioPreseason?.toNumber() ?? null,
           }
         : null,
     }));

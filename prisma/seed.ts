@@ -6,6 +6,7 @@ import {
   EstiloClase,
   CategoriaGrupo,
   TipoTierGrupo,
+  TipoCursoEspecial,
 } from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
@@ -330,7 +331,8 @@ async function main() {
     { clave: "umbral_faltas",      valor: "3",   descripcion: "Faltas consecutivas antes de notificar al padre" },
     { clave: "minutos_checkin",    valor: "10",  descripcion: "Minutos máximos para que el maestro inicie la clase" },
     { clave: "dia_corte_global",   valor: "1",   descripcion: "Día del mes en que vence el pago mensual (global)" },
-    { clave: "cuota_inscripcion",  valor: "500", descripcion: "Cuota única de inscripción por alumna (nuevo ingreso)" },
+    { clave: "cuota_inscripcion",       valor: "500", descripcion: "Cuota única de inscripción por alumna (nuevo ingreso)" },
+    { clave: "precio_preseason_default", valor: "500", descripcion: "Precio de pre-season por defecto al crear un grupo nuevo (editable)" },
   ];
 
   for (const config of configs) {
@@ -819,6 +821,36 @@ async function main() {
   }
 
   console.log("✅ Tarifas de mensualidad creadas (16 grupos)");
+
+  // ─────────────────────────────────────────────
+  // Cursos Especiales (vacaciones & verano)
+  // ─────────────────────────────────────────────
+
+  const cursosEspeciales = [
+    {
+      nombre: "Campus Verano 2026",
+      tipo: TipoCursoEspecial.CURSO_VERANO,
+      descripcion: "Programa intensivo de verano — Ballet, Hip-Hop y Contemporáneo. Lunes a viernes de 9:00 a 12:00.",
+      fechaInicio: new Date("2026-07-06"),
+      fechaFin: new Date("2026-08-01"),
+      cupo: 30,
+      precio: 1800,
+      activo: false,
+      diasSemana: ["L", "M", "X", "J", "V"],
+      horaInicio: "09:00",
+      duracionMinutos: 180,
+    },
+  ];
+
+  for (const c of cursosEspeciales) {
+    await prisma.cursoEspecial.upsert({
+      where:  { nombre: c.nombre },
+      update: { ...c },
+      create: { ...c },
+    });
+  }
+
+  console.log(`✅ Cursos especiales creados (${cursosEspeciales.length})`);
 
   // ─────────────────────────────────────────────
   // Resumen
