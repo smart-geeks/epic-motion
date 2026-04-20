@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { withRLS } from '@/lib/prisma-rls';
 import { ClipboardList } from 'lucide-react';
 import BotonNuevaInscripcion from '@/components/inscripciones/BotonNuevaInscripcion';
+import * as svc from '@/lib/services/inscripcion-service';
 
 // Carga lista de inscripciones recientes desde el servidor
 async function obtenerInscripciones() {
@@ -35,8 +36,29 @@ async function obtenerInscripciones() {
   return inscripciones;
 }
 
+// Datos iniciales para el wizard de inscripción
+async function obtenerDatosInscripcion() {
+  const session = await getServerSession(authOptions);
+  if (!session) return { grupos: [], cuotaInscripcion: 0, cicloEscolar: '' };
+
+  const [grupos, config] = await withRLS(session, async (tx) => {
+    const g = await svc.getGruposParaInscripcion(tx);
+    const c = await svc.getConfiguracion(tx, ['cuota_inscripcion']);
+    return [g, c];
+  });
+
+  return {
+    grupos,
+    cuotaInscripcion: parseFloat(config.cuota_inscripcion ?? '0'),
+    cicloEscolar: svc.calcularCicloEscolar(),
+  };
+}
+
 export default async function InscripcionesPage() {
-  const inscripciones = await obtenerInscripciones();
+  const [inscripciones, datosWizard] = await Promise.all([
+    obtenerInscripciones(),
+    obtenerDatosInscripcion(),
+  ]);
 
   return (
     <div>
@@ -51,7 +73,11 @@ export default async function InscripcionesPage() {
           </p>
         </div>
         <Suspense fallback={null}>
-          <BotonNuevaInscripcion />
+          <BotonNuevaInscripcion 
+            gruposIniciales={datosWizard.grupos} 
+            cuotaInicial={datosWizard.cuotaInscripcion} 
+            cicloInicial={datosWizard.cicloEscolar} 
+          />
         </Suspense>
       </div>
 

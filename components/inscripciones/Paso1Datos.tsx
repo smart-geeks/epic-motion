@@ -10,6 +10,7 @@ import Checkbox from '@/components/ui/Checkbox';
 import ArmadorClases from '@/components/inscripciones/ArmadorClases';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
 import type { GrupoCard, AlumnaBusqueda } from '@/types/inscripciones';
+import { CANALES_CONTACTO } from '@/lib/constants';
 
 interface Paso1DatosProps {
   grupos: GrupoCard[];
@@ -412,11 +413,7 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
             <RadioGroup
               name="canalContacto"
               label="¿Cómo prefiere que nos comuniquemos?"
-              opciones={[
-                { value: 'WHATSAPP', label: 'WhatsApp' },
-                { value: 'EMAIL', label: 'Email' },
-                { value: 'TELEFONO', label: 'Teléfono' },
-              ]}
+              opciones={CANALES_CONTACTO}
               valor={infoGeneral.canalContacto}
               onChange={(v) =>
                 setInfoGeneral({ canalContacto: v as 'WHATSAPP' | 'EMAIL' | 'TELEFONO' })

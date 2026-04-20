@@ -5,8 +5,15 @@ import { Plus, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import WizardInscripcion from '@/components/inscripciones/WizardInscripcion';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
+import type { GrupoCard } from '@/types/inscripciones';
 
-export default function BotonNuevaInscripcion() {
+interface Props {
+  gruposIniciales: GrupoCard[];
+  cuotaInicial: number;
+  cicloInicial: string;
+}
+
+export default function BotonNuevaInscripcion({ gruposIniciales, cuotaInicial, cicloInicial }: Props) {
   const [abierto, setAbierto] = useState(false);
   const resetWizard = useWizardInscripcion((s) => s.resetWizard);
 
@@ -57,7 +64,11 @@ export default function BotonNuevaInscripcion() {
 
               {/* Contenido del wizard */}
               <div className="px-6 py-6">
-                <WizardInscripcion />
+                <WizardInscripcion 
+                  gruposIniciales={gruposIniciales} 
+                  cuotaInicial={cuotaInicial} 
+                  cicloInicial={cicloInicial} 
+                />
               </div>
             </div>
           </div>

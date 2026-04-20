@@ -1,14 +1,15 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check, ChevronDown, Loader2, Pencil, Star, Users, X } from 'lucide-react';
-import type { GrupoConfigData } from '@/app/api/configuracion/grupos/route';
-import type { AlumnaConfigData } from '@/app/api/configuracion/alumnas/route';
+import { toast } from 'sonner';
+import { Check, ChevronDown, Loader2, Pencil, Plus, Search, Star, Users, X } from 'lucide-react';
+import type { GrupoConfigData, AlumnaConfigData, ReasignacionResult } from '@/types/configuracion';
 import {
   getAlumnaDisciplinasEnGrupo,
   setAlumnaDisciplinasEnGrupo,
   removerAlumnaDeGrupo,
   removerDisciplinaDeGrupo,
+  reasignarAlumna,
 } from '@/lib/actions/config-grupos';
 import { calcularMonto } from '@/lib/logic/precios';
 import { FMT_MXN } from '@/lib/format';
@@ -22,6 +23,7 @@ export interface GrupoDetailProps {
   onEditarConfig: () => void;
   onAlumnaRemovida: (alumnaId: string) => void;
   onDisciplinaRemovida: (grupoId: string, disciplinaId: string) => void;
+  onAlumnaAgregada?: () => void;
 }
 
 export default function GrupoDetailModal({
@@ -31,8 +33,10 @@ export default function GrupoDetailModal({
   onEditarConfig,
   onAlumnaRemovida,
   onDisciplinaRemovida,
+  onAlumnaAgregada,
 }: GrupoDetailProps) {
   const alumnaDelGrupo = alumnas.filter((a) => a.grupoActual?.id === grupo.id);
+  const alumnasFuera = alumnas.filter((a) => a.grupoActual?.id !== grupo.id);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const [expandida, setExpandida] = useState<string | null>(null);
@@ -47,6 +51,46 @@ export default function GrupoDetailModal({
 
   const [confirmDisc, setConfirmDisc] = useState<string | null>(null);
   const [pendingDisc, setPendingDisc] = useState<Set<string>>(new Set());
+
+  // ── Agregar alumna ────────────────────────────────────────────────────────
+  const [showAgregar, setShowAgregar] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [agregando, setAgregando] = useState<Set<string>>(new Set());
+  const [confirmEdad, setConfirmEdad] = useState<{ alumnaId: string; nombre: string; mensaje: string } | null>(null);
+
+  const alumnasFiltradas = alumnasFuera.filter((a) => {
+    const q = busqueda.toLowerCase();
+    return `${a.nombre} ${a.apellido}`.toLowerCase().includes(q);
+  });
+
+  async function handleAgregar(alumnaId: string, forzar = false) {
+    setAgregando((p) => new Set(p).add(alumnaId));
+    const res: ReasignacionResult = await reasignarAlumna(alumnaId, grupo.id, forzar);
+    setAgregando((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
+
+    if (res.ok) {
+      setShowAgregar(false);
+      setBusqueda('');
+      toast.success('Alumna agregada al grupo.');
+      onAlumnaAgregada?.();
+    } else if (!res.ok && res.error === 'FUERA_DE_RANGO' && 'edadAlumna' in res) {
+      const a = alumnas.find((x) => x.id === alumnaId);
+      const nombre = a ? `${a.nombre} ${a.apellido}` : 'La alumna';
+      setConfirmEdad({
+        alumnaId,
+        nombre,
+        mensaje: `${nombre} tiene ${res.edadAlumna} años y el grupo "${grupo.nombre}" acepta ${res.edadMin}–${res.edadMax} años. ¿Confirmar de todas formas?`,
+      });
+    } else if (!res.ok) {
+      toast.error(res.error ?? 'Error al agregar la alumna.');
+    }
+  }
+
+  async function handleConfirmEdad() {
+    if (!confirmEdad) return;
+    setConfirmEdad(null);
+    await handleAgregar(confirmEdad.alumnaId, true);
+  }
 
   async function handleExpandir(alumnaId: string) {
     if (expandida === alumnaId) { setExpandida(null); return; }
@@ -80,8 +124,11 @@ export default function GrupoDetailModal({
     if (res.ok) {
       setDiscCargadas((p) => ({ ...p, [alumnaId]: ids }));
       setExpandida(null);
+      toast.success('Disciplinas actualizadas.');
     } else {
-      setErrorDisc((p) => ({ ...p, [alumnaId]: res.error ?? 'Error al guardar.' }));
+      const msg = res.error ?? 'Error al guardar.';
+      setErrorDisc((p) => ({ ...p, [alumnaId]: msg }));
+      toast.error(msg);
     }
   }
 
@@ -90,7 +137,12 @@ export default function GrupoDetailModal({
     const res = await removerAlumnaDeGrupo(alumnaId);
     setPendingBaja((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
     setConfirmBaja(null);
-    if (res.ok) onAlumnaRemovida(alumnaId);
+    if (res.ok) {
+      toast.success('Alumna retirada del grupo.');
+      onAlumnaRemovida(alumnaId);
+    } else {
+      toast.error(res.error ?? 'Error al dar de baja.');
+    }
   }
 
   async function handleQuitarDisc(disciplinaId: string) {
@@ -98,7 +150,12 @@ export default function GrupoDetailModal({
     const res = await removerDisciplinaDeGrupo(grupo.id, disciplinaId);
     setPendingDisc((p) => { const s = new Set(p); s.delete(disciplinaId); return s; });
     setConfirmDisc(null);
-    if (res.ok) onDisciplinaRemovida(grupo.id, disciplinaId);
+    if (res.ok) {
+      toast.success('Disciplina eliminada del grupo.');
+      onDisciplinaRemovida(grupo.id, disciplinaId);
+    } else {
+      toast.error(res.error ?? 'Error al quitar la disciplina.');
+    }
   }
 
   return (
@@ -309,6 +366,71 @@ export default function GrupoDetailModal({
             )}
           </div>
 
+          {/* ── Agregar alumna al grupo ── */}
+          <div>
+            <button
+              type="button"
+              onClick={() => { setShowAgregar((p) => !p); setBusqueda(''); }}
+              className="flex items-center gap-2 text-xs font-inter font-medium dark:text-white/40 text-gray-500 hover:dark:text-white hover:text-gray-900 transition-colors"
+            >
+              <Plus size={13} />
+              Agregar alumna al grupo
+            </button>
+
+            {showAgregar && (
+              <div className="mt-3 space-y-2">
+                <div className="relative">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Buscar alumna..."
+                    value={busqueda}
+                    onChange={(e) => setBusqueda(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 rounded-lg text-sm font-inter dark:bg-white/5 bg-gray-50 dark:text-white text-gray-900 border dark:border-white/10 border-gray-200 focus:outline-none focus:border-epic-gold/50 transition-colors placeholder:dark:text-white/20 placeholder:text-gray-400"
+                  />
+                </div>
+
+                {alumnasFiltradas.length === 0 ? (
+                  <p className="font-inter text-xs dark:text-white/30 text-gray-400 italic px-1">
+                    {busqueda ? 'Sin resultados.' : 'Todas las alumnas ya están en un grupo.'}
+                  </p>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl border dark:border-white/8 border-gray-200 p-1">
+                    {alumnasFiltradas.map((a) => {
+                      const inicial = `${a.nombre[0]}${a.apellido[0]}`.toUpperCase();
+                      const isPending = agregando.has(a.id);
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => handleAgregar(a.id)}
+                          disabled={isPending}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg dark:hover:bg-zinc-800 hover:bg-gray-50 transition-colors text-left disabled:opacity-50"
+                        >
+                          <div className="w-7 h-7 rounded-full bg-epic-gold/15 flex items-center justify-center shrink-0 font-montserrat font-bold text-[11px] text-epic-gold">
+                            {inicial}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-inter text-sm dark:text-white text-gray-900 truncate">{a.nombre} {a.apellido}</p>
+                            {a.grupoActual && (
+                              <p className="font-inter text-xs dark:text-white/35 text-gray-500 truncate">
+                                Actualmente en: {a.grupoActual.nombre}
+                              </p>
+                            )}
+                          </div>
+                          {isPending
+                            ? <Loader2 size={13} className="animate-spin dark:text-white/30 text-gray-400 shrink-0" />
+                            : <Plus size={13} className="shrink-0 dark:text-white/20 text-gray-300 group-hover:text-epic-gold" />
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* ── Disciplinas del grupo ── */}
           <div>
             <div className="flex items-center gap-2 mb-3">
@@ -359,6 +481,32 @@ export default function GrupoDetailModal({
 
         </div>
       </div>
+
+      {/* Confirm: edad fuera de rango al agregar */}
+      {confirmEdad && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm dark:bg-[#1a1a1a] bg-white rounded-2xl border dark:border-white/8 border-gray-200 shadow-2xl p-6 space-y-4">
+            <p className="font-montserrat font-bold text-sm dark:text-white text-gray-900">Rango de edad diferente</p>
+            <p className="font-inter text-sm dark:text-epic-silver text-gray-600 leading-relaxed">{confirmEdad.mensaje}</p>
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setConfirmEdad(null)}
+                className="flex-1 py-2 rounded-lg text-sm font-inter border dark:border-white/10 border-gray-200 dark:text-white/60 text-gray-600 hover:dark:text-white hover:text-gray-900 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmEdad}
+                className="flex-1 py-2 rounded-lg text-sm font-inter font-medium bg-epic-gold text-black hover:bg-epic-gold/90 transition-colors"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

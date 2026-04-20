@@ -3,7 +3,7 @@
 // Cambiar aquí propaga el valor a todos los componentes que lo usan.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { CategoriaGrupo, TipoTierGrupo } from '@/app/generated/prisma/enums';
+import { CategoriaGrupo, MetodoPago, TipoCursoEspecial, TipoTierGrupo } from '@/app/generated/prisma/enums';
 
 // Tiers ordenados de menor a mayor — espeja el enum Prisma TipoTierGrupo
 export const TIERS = Object.values(TipoTierGrupo) as TipoTierGrupo[];
@@ -15,6 +15,34 @@ export const CAT_OPTIONS: { value: CategoriaGrupo; label: string }[] = [
   { value: CategoriaGrupo.EPIC_ONE,    label: 'Epic One' },
   { value: CategoriaGrupo.TEEN,        label: 'Teen' },
   { value: CategoriaGrupo.COMPETICION, label: 'Competición' },
+];
+
+// Métodos de pago — espeja el enum Prisma MetodoPago
+export const METODOS_PAGO: { value: MetodoPago; label: string }[] = [
+  { value: MetodoPago.EFECTIVO,      label: 'Efectivo' },
+  { value: MetodoPago.TRANSFERENCIA, label: 'Transferencia' },
+  { value: MetodoPago.TARJETA,       label: 'Tarjeta' },
+];
+
+// Canales de contacto — espeja los valores del schema (campo String, no enum Prisma)
+export const CANALES_CONTACTO: { value: 'WHATSAPP' | 'EMAIL' | 'TELEFONO'; label: string }[] = [
+  { value: 'WHATSAPP', label: 'WhatsApp' },
+  { value: 'EMAIL',    label: 'Email' },
+  { value: 'TELEFONO', label: 'Teléfono' },
+];
+
+// Tipos de curso especial — espeja el enum Prisma TipoCursoEspecial
+export const TIPOS_CURSO_ESPECIAL: { value: TipoCursoEspecial; label: string }[] = [
+  { value: TipoCursoEspecial.VACACIONES,   label: 'Vacaciones' },
+  { value: TipoCursoEspecial.CURSO_VERANO, label: 'Curso de Verano' },
+];
+
+// Duraciones de clase disponibles para configurar disciplinas
+export const DURACION_OPTIONS: { value: number; label: string }[] = [
+  { value: 45,  label: '45 min' },
+  { value: 60,  label: '60 min' },
+  { value: 90,  label: '90 min' },
+  { value: 120, label: '2 horas' },
 ];
 
 export const WHATSAPP_CONTACTO = '528712044277';

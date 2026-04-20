@@ -2,12 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronDown, Copy, Loader2, Plus, X } from 'lucide-react';
-import type { GrupoConfigData } from '@/app/api/configuracion/grupos/route';
-import type { DisciplinaConfigData } from '@/app/api/configuracion/disciplinas/route';
-import type { ProfesorData } from '@/lib/actions/config-grupos';
+import type { GrupoConfigData, DisciplinaConfigData, ProfesorData } from '@/types/configuracion';
 import { toast } from 'sonner';
 import { crearGrupo, getTarifaPorTier, getGrupoDisciplinasCompletas } from '@/lib/actions/config-grupos';
-import { CAT_OPTIONS } from '@/lib/constants';
+import { CAT_OPTIONS, DURACION_OPTIONS } from '@/lib/constants';
 
 interface DisciplinaRow {
   uid: string;
@@ -40,13 +38,6 @@ const TIER_COLOR: Record<string, string> = {
   T4:   'dark:bg-orange-500/10 bg-orange-50 dark:text-orange-300 text-orange-600 dark:border-orange-500/20 border-orange-200',
   FULL: 'dark:bg-green-500/10 bg-green-50 dark:text-green-300 text-green-600 dark:border-green-500/20 border-green-200',
 };
-
-const DURACION_OPTIONS = [
-  { value: 45,  label: '45 min' },
-  { value: 60,  label: '60 min' },
-  { value: 90,  label: '90 min' },
-  { value: 120, label: '2 horas' },
-];
 
 // ─── Helpers (sólo UI — sin lógica de negocio) ────────────────────────────────
 

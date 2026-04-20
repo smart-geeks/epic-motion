@@ -27,8 +27,8 @@
 import { prisma } from "@/lib/prisma";
 import type { Session } from "next-auth";
 
-// Tipo que expone el cliente transaccional de Prisma
-type PrismaTransactionClient = Omit<
+// Tipo que expone el cliente transaccional de Prisma (exportado para el service layer)
+export type PrismaTransactionClient = Omit<
   typeof prisma,
   "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
 >;

@@ -1,13 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useOptimistic, useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Loader2, Plus, Star, Sun, Users } from 'lucide-react';
-import type { GrupoConfigData } from '@/app/api/configuracion/grupos/route';
-import type { AlumnaConfigData } from '@/app/api/configuracion/alumnas/route';
-import type { CursoEspecialData } from '@/app/api/configuracion/cursos-especiales/route';
-import type { DisciplinaConfigData } from '@/app/api/configuracion/disciplinas/route';
-import type { ProfesorData, ReasignacionResult } from '@/lib/actions/config-grupos';
+import { toast } from 'sonner';
+import { ChevronDown, Loader2, Pencil, Plus, Star, Sun, Users } from 'lucide-react';
+import type { GrupoConfigData, AlumnaConfigData, CursoEspecialData, DisciplinaConfigData, ProfesorData, ReasignacionResult } from '@/types/configuracion';
 import { toggleInvitacionCompetencia, reasignarAlumna } from '@/lib/actions/config-grupos';
 import { FMT_MXN } from '@/lib/format';
 import CapacityBar from '@/components/ui/CapacityBar';
@@ -15,7 +12,9 @@ import TierBadge from '@/components/ui/TierBadge';
 import CargoBadge from '@/components/ui/CargoBadge';
 import GrupoDetailModal from '@/components/configuracion/modals/GrupoDetailModal';
 import EditModal from '@/components/configuracion/modals/EditModal';
-import DialogNuevoGrupo from './DialogNuevoGrupo';
+import EditCursoEspecialModal from '@/components/configuracion/modals/EditCursoEspecialModal';
+import GrupoWizard from '@/components/admin/configuracion/GrupoWizard';
+import ConfigCard from '@/components/ui/ConfigCard';
 
 interface Props {
   grupos: GrupoConfigData[];
@@ -44,20 +43,36 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
   const [grupoEditandoId, setGrupoEditandoId] = useState<string | null>(null);
   const grupoEditando = grupos.find((g) => g.id === grupoEditandoId) ?? null;
 
+  const [cursoEditandoId, setCursoEditandoId] = useState<string | null>(null);
+  const cursoEditando = cursosEspeciales.find((c) => c.id === cursoEditandoId) ?? null;
+
   const [nuevoGrupoOpen, setNuevoGrupoOpen] = useState(false);
 
   // Estado de interacciones
   const [confirm, setConfirm] = useState<ConfirmReasignacion | null>(null);
-  const [pendingStars, setPendingStars] = useState<Set<string>>(new Set());
   const [pendingReasign, setPendingReasign] = useState<Set<string>>(new Set());
+
+  // ── Optimistic UI — estrella de competencia ───────────────────────────────
+  const [, startStarTransition] = useTransition();
+  const [optimisticAlumnas, dispatchOptimisticStar] = useOptimistic(
+    alumnas,
+    (state, { id, invitadaCompetencia }: { id: string; invitadaCompetencia: boolean }) =>
+      state.map((a) => (a.id === id ? { ...a, invitadaCompetencia } : a)),
+  );
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  async function handleToggleStar(alumnaId: string) {
-    setPendingStars((p) => new Set(p).add(alumnaId));
-    const res = await toggleInvitacionCompetencia(alumnaId);
-    setPendingStars((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
-    if (res.ok) router.refresh();
+  function handleToggleStar(alumna: AlumnaConfigData) {
+    startStarTransition(async () => {
+      dispatchOptimisticStar({ id: alumna.id, invitadaCompetencia: !alumna.invitadaCompetencia });
+      const res = await toggleInvitacionCompetencia(alumna.id);
+      if (res.ok) {
+        router.refresh();
+      } else {
+        // useOptimistic revierte automáticamente al estado original si no se refresca
+        toast.error(res.error ?? 'Error al actualizar la estrella.');
+      }
+    });
   }
 
   async function handleReasignar(alumnaId: string, grupoId: string, forzar = false) {
@@ -68,6 +83,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
 
     if (res.ok) {
       router.refresh();
+      toast.success('Alumna reasignada correctamente.');
     } else if (!res.ok && res.error === 'FUERA_DE_RANGO' && 'edadAlumna' in res) {
       const grupoNombre = grupos.find((g) => g.id === grupoId)?.nombre ?? grupoId;
       setConfirm({
@@ -75,6 +91,8 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
         grupoId,
         mensaje: `La alumna tiene ${res.edadAlumna} años y el grupo "${grupoNombre}" acepta ${res.edadMin}–${res.edadMax} años. ¿Confirmar asignación de todas formas?`,
       });
+    } else if (!res.ok) {
+      toast.error(res.error ?? 'Error al reasignar.');
     }
 
     setPendingReasign((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
@@ -120,11 +138,11 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {items.map((g) => (
-                  <button
+                  <ConfigCard
                     key={g.id}
-                    type="button"
+                    as="button"
+                    interactive
                     onClick={() => setGrupoDetalleId(g.id)}
-                    className="text-left dark:bg-[#121212] bg-white rounded-xl border dark:border-white/8 border-gray-200 p-4 space-y-3 hover:border-epic-gold/50 dark:hover:bg-[#181818] hover:shadow-md transition-all duration-200 group cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-montserrat font-bold text-sm dark:text-white text-gray-900 group-hover:text-epic-gold transition-colors leading-snug">
@@ -166,7 +184,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
                         </p>
                       )}
                     </div>
-                  </button>
+                  </ConfigCard>
                 ))}
               </div>
             </div>
@@ -201,10 +219,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
                 const fechaFin = new Date(c.fechaFin).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
                 const tipoBadge = c.tipo === 'CURSO_VERANO' ? 'Verano' : 'Vacaciones';
                 return (
-                  <div
-                    key={c.id}
-                    className="text-left dark:bg-[#0d1417] bg-cyan-50/60 dark:border-cyan-500/15 border-cyan-200/60 rounded-xl border p-4 space-y-3"
-                  >
+                  <ConfigCard key={c.id} variant="cyan">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-montserrat font-bold text-sm dark:text-white text-gray-900 leading-snug">{c.nombre}</p>
                       <div className="flex items-center gap-1.5 shrink-0">
@@ -217,6 +232,14 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-wider bg-cyan-500/15 text-cyan-400">
                           {tipoBadge}
                         </span>
+                        <button
+                          type="button"
+                          title="Editar curso"
+                          onClick={() => setCursoEditandoId(c.id)}
+                          className="p-1 rounded-lg dark:text-white/30 text-gray-400 hover:dark:text-cyan-400 hover:text-cyan-600 hover:bg-cyan-500/10 transition-colors"
+                        >
+                          <Pencil size={13} />
+                        </button>
                       </div>
                     </div>
                     <p className="font-inter text-xs dark:text-white/50 text-gray-600">{fechaIni} — {fechaFin}</p>
@@ -231,7 +254,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
                       {FMT_MXN.format(c.precio)}
                       <span className="font-normal text-[11px] dark:text-white/30 text-gray-400"> / curso</span>
                     </p>
-                  </div>
+                  </ConfigCard>
                 );
               })}
             </div>
@@ -247,9 +270,8 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
   function renderAlumnas() {
     return (
       <div className="space-y-1">
-        {alumnas.map((a) => {
+        {optimisticAlumnas.map((a) => {
           const inicial = `${a.nombre[0]}${a.apellido[0]}`.toUpperCase();
-          const starPending = pendingStars.has(a.id);
           const reasignPending = pendingReasign.has(a.id);
 
           return (
@@ -295,19 +317,14 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
 
               <button
                 type="button"
-                onClick={() => handleToggleStar(a.id)}
-                disabled={starPending}
+                onClick={() => handleToggleStar(a)}
                 title={a.invitadaCompetencia ? 'Quitar de competencia' : 'Invitar a competencia'}
-                className="shrink-0 p-1.5 rounded-lg transition-colors hover:bg-epic-gold/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="shrink-0 p-1.5 rounded-lg transition-colors hover:bg-epic-gold/10"
               >
-                {starPending ? (
-                  <Loader2 size={15} className="animate-spin dark:text-white/30 text-gray-400" />
-                ) : (
-                  <Star
-                    size={15}
-                    className={a.invitadaCompetencia ? 'fill-epic-gold text-epic-gold' : 'dark:text-white/25 text-gray-300'}
-                  />
-                )}
+                <Star
+                  size={15}
+                  className={a.invitadaCompetencia ? 'fill-epic-gold text-epic-gold' : 'dark:text-white/25 text-gray-300'}
+                />
               </button>
             </div>
           );
@@ -372,6 +389,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
           onEditarConfig={() => setGrupoEditandoId(grupoDetalleId)}
           onAlumnaRemovida={() => router.refresh()}
           onDisciplinaRemovida={() => router.refresh()}
+          onAlumnaAgregada={() => router.refresh()}
         />
       )}
 
@@ -386,9 +404,19 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
         />
       )}
 
+      {/* Modal edición curso especial */}
+      {cursoEditando && (
+        <EditCursoEspecialModal
+          curso={cursoEditando}
+          profesores={profesores}
+          onClose={() => setCursoEditandoId(null)}
+          onSaved={() => { setCursoEditandoId(null); router.refresh(); }}
+        />
+      )}
+
       {/* Modal nuevo grupo */}
       {nuevoGrupoOpen && (
-        <DialogNuevoGrupo
+        <GrupoWizard
           grupos={grupos}
           disciplinas={disciplinas}
           profesores={profesores}

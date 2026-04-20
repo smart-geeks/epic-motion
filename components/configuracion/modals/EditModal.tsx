@@ -1,9 +1,9 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Check, ChevronDown, Loader2, X } from 'lucide-react';
-import type { GrupoConfigData } from '@/app/api/configuracion/grupos/route';
-import type { ProfesorData } from '@/lib/actions/config-grupos';
+import type { GrupoConfigData, ProfesorData } from '@/types/configuracion';
 import { updateGrupoConfig } from '@/lib/actions/config-grupos';
 import { TIERS } from '@/lib/constants';
 
@@ -51,7 +51,13 @@ export default function EditModal({ grupo, todosGrupos, profesores, onClose, onS
       profesorId: form.profesorId || null,
     });
     setGuardando(false);
-    if (!res.ok) { setError(res.error ?? 'Error al guardar.'); return; }
+    if (!res.ok) {
+      const msg = res.error ?? 'Error al guardar.';
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    toast.success('Grupo actualizado correctamente.');
     onSaved();
   }
 

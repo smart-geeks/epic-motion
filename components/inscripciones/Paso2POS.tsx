@@ -8,6 +8,7 @@ import RadioGroup from '@/components/ui/RadioGroup';
 import Input from '@/components/ui/Input';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
 import type { InscripcionPayload } from '@/types/inscripciones';
+import { METODOS_PAGO } from '@/lib/constants';
 
 export default function Paso2POS() {
   const {
@@ -217,11 +218,7 @@ export default function Paso2POS() {
         <RadioGroup
           name="metodoPago"
           label="Método de pago"
-          opciones={[
-            { value: 'EFECTIVO', label: 'Efectivo' },
-            { value: 'TRANSFERENCIA', label: 'Transferencia' },
-            { value: 'TARJETA', label: 'Tarjeta' },
-          ]}
+          opciones={METODOS_PAGO}
           valor={pago.metodoPago}
           onChange={(v) => setDatosPago({ metodoPago: v as 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA' })}
         />

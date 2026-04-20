@@ -1,22 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { Users, GraduationCap, CircleDollarSign, Globe } from 'lucide-react';
-import type { GrupoConfigData } from '@/app/api/configuracion/grupos/route';
-import type { AlumnaConfigData } from '@/app/api/configuracion/alumnas/route';
-import type { CursoEspecialData } from '@/app/api/configuracion/cursos-especiales/route';
-import type { DisciplinaConfigData } from '@/app/api/configuracion/disciplinas/route';
-import type { ProfesorData } from '@/lib/actions/config-grupos';
+import { Users, GraduationCap, CircleDollarSign, Globe, Zap } from 'lucide-react';
+import type { GrupoConfigData, AlumnaConfigData, CursoEspecialData, DisciplinaConfigData, ProfesorData } from '@/types/configuracion';
 import TabGruposAlumnas from './TabGruposAlumnas';
 import TabMaestros from './TabMaestros';
 import TabTarifas from './TabTarifas';
 import TabLandingAcademia from './TabLandingAcademia';
+import TabOperaciones from './TabOperaciones';
 
 const TABS = [
-  { id: 'grupos',   label: 'Grupos y Alumnas',  icon: Users           },
-  { id: 'maestros', label: 'Maestros y Staff',   icon: GraduationCap   },
-  { id: 'tarifas',  label: 'Tarifas y Finanzas', icon: CircleDollarSign },
-  { id: 'landing',  label: 'Landing y Academia', icon: Globe           },
+  { id: 'grupos',      label: 'Grupos y Alumnas',  icon: Users            },
+  { id: 'maestros',    label: 'Maestros y Staff',   icon: GraduationCap    },
+  { id: 'tarifas',     label: 'Tarifas y Finanzas', icon: CircleDollarSign },
+  { id: 'landing',     label: 'Landing y Academia', icon: Globe            },
+  { id: 'operaciones', label: 'Operaciones',         icon: Zap              },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -70,9 +68,10 @@ export default function ConfiguracionShell({ grupos, alumnas, cursosEspeciales, 
             profesores={profesores}
           />
         )}
-        {activeTab === 'maestros' && <TabMaestros />}
-        {activeTab === 'tarifas'  && <TabTarifas />}
-        {activeTab === 'landing'  && <TabLandingAcademia />}
+        {activeTab === 'maestros'    && <TabMaestros />}
+        {activeTab === 'tarifas'     && <TabTarifas />}
+        {activeTab === 'landing'     && <TabLandingAcademia />}
+        {activeTab === 'operaciones' && <TabOperaciones />}
       </div>
     </>
   );
