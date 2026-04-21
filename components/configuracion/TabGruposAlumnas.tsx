@@ -7,7 +7,7 @@ import { Pencil, Plus, Sun, Users } from 'lucide-react';
 import AlumnaDetailModal from '@/components/configuracion/modals/AlumnaDetailModal';
 import GrupoSelect from '@/components/ui/GrupoSelect';
 import type { GrupoConfigData, AlumnaConfigData, CursoEspecialData, DisciplinaConfigData, ProfesorData, ReasignacionResult } from '@/types/configuracion';
-import { toggleInvitacionCompetencia, reasignarAlumna } from '@/lib/actions/config-grupos';
+import { toggleInvitacionCompetencia, reasignarAlumna, setAlumnaDisciplinasEnGrupo, actualizarPadre } from '@/lib/actions/config-grupos';
 import { FMT_MXN } from '@/lib/format';
 import CapacityBar from '@/components/ui/CapacityBar';
 import TierBadge from '@/components/ui/TierBadge';
@@ -54,6 +54,8 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
   // Estado de interacciones
   const [confirm, setConfirm] = useState<ConfirmReasignacion | null>(null);
   const [pendingReasign, setPendingReasign] = useState<Set<string>>(new Set());
+  const [pendingDisciplinas, setPendingDisciplinas] = useState<Set<string>>(new Set());
+  const [isUpdatingParent, setIsUpdatingParent] = useState(false);
 
   // ── Optimistic UI — estrella de competencia ───────────────────────────────
   const [, startStarTransition] = useTransition();
@@ -108,6 +110,39 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
     if (!confirm) return;
     setConfirm(null);
     await handleReasignar(confirm.alumnaId, confirm.grupoId, true);
+  }
+
+  async function handleUpdateDisciplinas(alumnaId: string, grupoId: string, disciplinaIds: string[], shouldReasign = false) {
+    setPendingDisciplinas((p) => new Set(p).add(alumnaId));
+    
+    // Si se detectó un cambio automático de grupo por Tier
+    if (shouldReasign) {
+      setPendingReasign((p) => new Set(p).add(alumnaId));
+      const r = await reasignarAlumna(alumnaId, grupoId, true); // true = forzar cambio administrativo
+      setPendingReasign((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
+      if (!r.ok) {
+        toast.error(r.error ?? 'Error al cambiar de grupo automáticamente.');
+        setPendingDisciplinas((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
+        return;
+      }
+    }
+
+    const res = await setAlumnaDisciplinasEnGrupo(alumnaId, grupoId, disciplinaIds);
+    if (!res.ok) toast.error(res.error ?? 'Error al guardar las disciplinas.');
+    else router.refresh();
+    
+    setPendingDisciplinas((p) => { const s = new Set(p); s.delete(alumnaId); return s; });
+  }
+
+  async function handleUpdateParent(padreId: string, telefono: string, email: string) {
+    setIsUpdatingParent(true);
+    const res = await actualizarPadre(padreId, telefono, email);
+    setIsUpdatingParent(false);
+    if (!res.ok) toast.error(res.error ?? 'Error al actualizar tutor.');
+    else {
+      toast.success('Datos del tutor actualizados.');
+      router.refresh();
+    }
   }
 
   // ── Render: vista grupos ──────────────────────────────────────────────────
@@ -297,7 +332,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
     });
 
     return (
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {claves.map((grupoId) => {
           const lista = agrupadas[grupoId].slice().sort((a, b) =>
             `${a.nombre} ${a.apellido}`.localeCompare(`${b.nombre} ${b.apellido}`),
@@ -307,18 +342,19 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
             : 'Sin grupo';
 
           return (
-            <div key={grupoId || '__sin_grupo'} className="glass-card rounded-2xl overflow-hidden">
-              <div className="flex items-center gap-3 px-4 py-3 border-b dark:border-epic-gold/20 border-amber-200/40">
-                <span className="font-montserrat font-bold text-[11px] tracking-[0.15em] uppercase text-epic-gold">
+            <div key={grupoId || '__sin_grupo'} className="space-y-4">
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-1.5 h-4 bg-epic-gold rounded-full" />
+                <h3 className="font-montserrat font-bold text-xs uppercase tracking-widest text-white/60">
                   {grupoNombre}
-                </span>
-                <div className="flex-1 h-px dark:bg-epic-gold/15 bg-amber-200/50" />
-                <span className="font-inter text-[11px] dark:text-white/30 text-gray-400 shrink-0">
-                  {lista.length} alumna{lista.length !== 1 ? 's' : ''}
+                </h3>
+                <div className="flex-1 h-px bg-white/5" />
+                <span className="font-inter text-[10px] text-white/20 font-bold">
+                  {lista.length}
                 </span>
               </div>
 
-              <div className="divide-y dark:divide-white/[0.04] divide-gray-100">
+              <div className="space-y-2">
                 {lista.map((a) => {
                   const inicial = `${a.nombre[0]}${a.apellido[0]}`.toUpperCase();
                   return (
@@ -326,18 +362,21 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
                       key={a.id}
                       type="button"
                       onClick={() => setAlumnaDetalleId(a.id)}
-                      className="w-full flex items-center gap-3 px-4 py-3 dark:hover:bg-white/[0.03] hover:bg-gray-50/60 transition-colors text-left"
+                      className="w-full flex items-center gap-4 p-4 glass-card rounded-2xl border-white/5 hover:border-white/20 hover:bg-white/[0.04] transition-all group/alumna text-left"
                     >
-                      <div className="w-9 h-9 rounded-full bg-epic-gold/15 flex items-center justify-center shrink-0 font-montserrat font-bold text-xs text-epic-gold">
+                      <div className="w-10 h-10 rounded-xl bg-epic-gold/10 flex items-center justify-center shrink-0 font-montserrat font-bold text-xs text-epic-gold border border-epic-gold/20 group-hover/alumna:scale-110 transition-transform">
                         {inicial}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-inter text-sm font-medium dark:text-white text-gray-900 truncate">
+                        <p className="font-inter text-sm font-bold text-white group-hover/alumna:text-epic-gold transition-colors truncate">
                           {a.nombre} {a.apellido}
                         </p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <CargoBadge pendientes={a.cargosPendientes} vencidos={a.cargosVencidos} monto={a.montoDeuda} />
                         </div>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center opacity-0 group-hover/alumna:opacity-100 transition-opacity">
+                        <ChevronRight size={14} className="text-white/40" />
                       </div>
                     </button>
                   );
@@ -436,15 +475,22 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
         />
       )}
 
-      {/* Modal detalle alumna */}
       {alumnaDetalle && (
         <AlumnaDetailModal
           alumna={alumnaDetalle}
-          grupo={grupos.find((g) => g.id === alumnaDetalle.grupoActual?.id) ?? null}
           grupos={grupos}
           isPendingReasign={pendingReasign.has(alumnaDetalle.id)}
+          isPendingDisciplinas={pendingDisciplinas.has(alumnaDetalle.id)}
+          isPendingParent={isUpdatingParent}
           onClose={() => setAlumnaDetalleId(null)}
           onReasignar={(grupoId) => handleReasignar(alumnaDetalle.id, grupoId)}
+          onUpdateDisciplinas={(ids, newGrupoId) => {
+            const gid = newGrupoId || alumnaDetalle.grupoActual?.id;
+            if (gid) {
+              handleUpdateDisciplinas(alumnaDetalle.id, gid, ids, !!newGrupoId);
+            }
+          }}
+          onUpdateParent={(tel, mail) => handleUpdateParent(alumnaDetalle.padreId, tel, mail)}
           onToggleStar={() => handleToggleStar(alumnaDetalle)}
         />
       )}

@@ -42,3 +42,19 @@ export async function getProfesores(tx: PrismaTransactionClient): Promise<any[]>
     orderBy: [{ nombre: 'asc' }],
   });
 }
+
+export async function getStaff(tx: PrismaTransactionClient): Promise<any[]> {
+  return tx.usuario.findMany({
+    where: {
+      rol: {
+        in: ['ADMIN', 'MAESTRO', 'RECEPCIONISTA']
+      }
+    },
+    include: {
+      profesor: true
+    },
+    orderBy: {
+      nombre: 'asc'
+    }
+  });
+}

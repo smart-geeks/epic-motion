@@ -26,15 +26,16 @@ const CORS_HEADERS = {
 // ─────────────────────────────────────────────
 const DASHBOARD_POR_ROL: Record<string, string> = {
   ADMIN: "/admin/dashboard",
-  MAESTRO: "/maestro/agenda",
+  MAESTRO: "/profesor/dashboard",
   PADRE: "/padre/home",
   RECEPCIONISTA: "/admin/dashboard",
 };
 
 const RUTAS_PROTEGIDAS: { prefijo: string; roles: string[] }[] = [
-  { prefijo: "/admin",   roles: ["ADMIN", "RECEPCIONISTA"] },
-  { prefijo: "/maestro", roles: ["MAESTRO"] },
-  { prefijo: "/padre",   roles: ["PADRE"] },
+  { prefijo: "/admin",    roles: ["ADMIN", "RECEPCIONISTA"] },
+  { prefijo: "/maestro",  roles: ["MAESTRO"] },
+  { prefijo: "/profesor", roles: ["MAESTRO"] },
+  { prefijo: "/padre",    roles: ["PADRE"] },
 ];
 
 // ─────────────────────────────────────────────

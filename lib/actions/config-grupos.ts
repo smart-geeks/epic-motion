@@ -350,3 +350,21 @@ export async function updateCursoEspecial(
     return { ok: false, error: 'Error al guardar el curso especial.' };
   }
 }
+export async function actualizarPadre(
+  padreId: string,
+  telefono: string,
+  email: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const v = z.object({ padreId: zUUID, telefono: z.string(), email: z.string().email() }).safeParse({ padreId, telefono, email });
+  if (!v.success) return { ok: false, error: 'Datos de contacto inválidos.' };
+
+  const session = await getServerSession(authOptions);
+  try {
+    await withRLS(session, (tx) => svc.actualizarDatosPadre(tx, padreId, telefono, email));
+    revalidatePath('/admin/configuracion');
+    return { ok: true };
+  } catch (err) {
+    console.error('[actualizarPadre]', err);
+    return { ok: false, error: 'No se pudo actualizar los datos del tutor.' };
+  }
+}

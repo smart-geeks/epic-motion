@@ -93,6 +93,11 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
+  /* ── Punto de color de disciplina — color inyectado vía CSS var ─────────── */
+  .disc-dot {
+    background-color: var(--disc-color);
+  }
+
   /* ── Portal dropdown — posición calculada desde JS vía CSS vars ────────── */
   .dropdown-portal {
     position: fixed;

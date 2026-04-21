@@ -1,7 +1,8 @@
 import type { PrismaTransactionClient } from '@/lib/prisma-rls';
-import type { 
-  AlumnaConfigData, 
-  ReasignacionResult 
+import type {
+  AlumnaConfigData,
+  HorarioAlumna,
+  ReasignacionResult
 } from '@/types/configuracion';
 import { calcularMonto } from '@/lib/logic/precios';
 import { calcularEdadCiclo } from './common-service';
@@ -21,12 +22,42 @@ export async function getAlumnas(tx: PrismaTransactionClient): Promise<AlumnaCon
         where: { estado: { in: ['PENDIENTE', 'VENCIDO'] } },
         select: { estado: true, montoFinal: true },
       },
+      disciplinasInscritas: {
+        select: {
+          disciplinaId: true,
+          grupoId: true,
+          disciplina: { select: { nombre: true, color: true } },
+        },
+      },
     },
     orderBy: [{ apellido: 'asc' }, { nombre: 'asc' }],
   });
+
+  // Obtener horarios reales de GrupoDisciplina en bulk (2 queries total, sin N+1)
+  const pares = alumnas.flatMap((a) =>
+    a.disciplinasInscritas.map((d) => ({ grupoId: d.grupoId, disciplinaId: d.disciplinaId }))
+  );
+  const horariosBulk = pares.length > 0
+    ? await tx.grupoDisciplina.findMany({
+        where: { OR: pares },
+        select: { grupoId: true, disciplinaId: true, dias: true, horaTexto: true },
+      })
+    : [];
+  const horarioMap = new Map(horariosBulk.map((h) => [`${h.grupoId}:${h.disciplinaId}`, h]));
+
   return alumnas.map((a) => {
     const pendientes = a.cargos.filter((c) => c.estado === 'PENDIENTE');
     const vencidos = a.cargos.filter((c) => c.estado === 'VENCIDO');
+    const horarios: HorarioAlumna[] = a.disciplinasInscritas.map((d) => {
+      const h = horarioMap.get(`${d.grupoId}:${d.disciplinaId}`);
+      return {
+        disciplinaId: d.disciplinaId,
+        nombre: d.disciplina.nombre,
+        color: d.disciplina.color,
+        dias: h?.dias ?? [],
+        horaTexto: h?.horaTexto ?? '',
+      };
+    });
     return {
       id: a.id,
       nombre: a.nombre,
@@ -39,7 +70,9 @@ export async function getAlumnas(tx: PrismaTransactionClient): Promise<AlumnaCon
       cargosPendientes: pendientes.length,
       cargosVencidos: vencidos.length,
       montoDeuda: a.cargos.reduce((sum, c) => sum + c.montoFinal.toNumber(), 0),
+      padreId: a.padreId,
       padre: { nombre: a.padre.nombre, apellido: a.padre.apellido, telefono: a.padre.telefono, email: a.padre.email },
+      horarios,
     };
   });
 }
@@ -170,4 +203,16 @@ export async function getAlumnaDisciplinas(
     select: { disciplinaId: true },
   });
   return records.map((r) => r.disciplinaId);
+}
+
+export async function actualizarDatosPadre(
+  tx: PrismaTransactionClient,
+  padreId: string,
+  telefono: string,
+  email: string
+): Promise<void> {
+  await tx.usuario.update({
+    where: { id: padreId },
+    data: { telefono, email },
+  });
 }

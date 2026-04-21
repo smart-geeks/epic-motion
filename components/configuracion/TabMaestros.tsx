@@ -1,23 +1,24 @@
 'use client';
 
-import { GraduationCap } from 'lucide-react';
+import { StaffHeader } from '../admin/staff/StaffHeader';
+import { StaffGrid } from '../admin/staff/StaffGrid';
 
-export default function TabMaestros() {
+interface TabMaestrosProps {
+  staff: any[];
+}
+
+export default function TabMaestros({ staff }: TabMaestrosProps) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-          <GraduationCap size={18} className="text-purple-400" />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <StaffHeader />
+      
+      {staff.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 glass rounded-[2.5rem] border-white/10">
+          <p className="text-white/40 font-inter">No hay miembros del staff registrados aún.</p>
         </div>
-        <h2 className="font-montserrat font-bold text-xl text-epic-black dark:text-white tracking-[0.03em]">
-          Maestros y Staff
-        </h2>
-      </div>
-      <p className="font-inter text-sm dark:text-epic-silver text-gray-500 leading-relaxed pl-12">
-        Administra el equipo docente: alta de maestros, especialidades, tarifa por hora,
-        asignación a grupos y gestión de accesos. También cubre recepcionistas y cualquier
-        rol de staff con acceso al sistema.
-      </p>
+      ) : (
+        <StaffGrid staff={staff} />
+      )}
     </div>
   );
 }

@@ -12,23 +12,33 @@ import gsap from "gsap";
 import {
   LayoutDashboard, Users, GraduationCap, CalendarDays, ClipboardList,
   CreditCard, Banknote, Newspaper, Trophy, Settings, BarChart3, LogOut,
-  Menu, X, ChevronRight, ShoppingCart, UserSquare,
+  Menu, X, ChevronRight, ShoppingCart, UserSquare, Wallet,
 } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/admin/dashboard",      label: "Dashboard",       icon: LayoutDashboard },
-  { href: "/admin/usuarios",       label: "Usuarios",        icon: Users },
-  { href: "/admin/alumnas",        label: "Alumnas",         icon: GraduationCap },
+  { 
+    label: "Usuarios",        
+    icon: Users,
+    children: [
+      { href: "/admin/alumnas",        label: "Alumnas",         icon: GraduationCap },
+      { href: "/admin/profesores",     label: "Profesores",      icon: UserSquare },
+    ]
+  },
   { href: "/admin/grupos",         label: "Grupos",          icon: CalendarDays },
-  { href: "/admin/inscripciones",  label: "Inscripciones",   icon: ClipboardList },
-  { href: "/admin/cobranza",       label: "Cobranza",        icon: CreditCard },
-  { href: "/admin/punto-de-venta", label: "Punto de Venta",  icon: ShoppingCart },
-  { href: "/admin/profesores",     label: "Profesores",      icon: UserSquare },
-  { href: "/admin/nomina",         label: "Nómina",          icon: Banknote },
+  { 
+    label: "Finanzas", 
+    icon: Wallet,
+    children: [
+      { href: "/admin/cobranza",       label: "Cobranza",        icon: CreditCard },
+      { href: "/admin/nomina",         label: "Nómina",          icon: Banknote },
+      { href: "/admin/punto-de-venta", label: "Punto de Venta",  icon: ShoppingCart },
+    ]
+  },
   { href: "/admin/noticias",       label: "Noticias",        icon: Newspaper },
   { href: "/admin/eventos",        label: "Eventos",         icon: Trophy },
-  { href: "/admin/configuracion",  label: "Configuración",   icon: Settings },
   { href: "/admin/reportes",       label: "Reportes",        icon: BarChart3 },
+  { href: "/admin/configuracion",  label: "Configuración",   icon: Settings },
 ];
 
 /* ── Springs tipados con Transition de Framer Motion ───────────────────── */
@@ -71,12 +81,40 @@ interface SidebarInnerProps {
 }
 
 function SidebarInner({ pathname, nombre, inicial, onClose }: SidebarInnerProps) {
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(() => {
+    // Inicialmente expandir menús si estamos en alguna de sus sub-rutas
+    const activeParent = NAV_LINKS.find(link => 
+      link.children?.some(child => pathname.startsWith(child.href))
+    );
+    return activeParent ? [activeParent.label] : [];
+  });
+
+  const toggleMenu = (label: string) => {
+    setExpandedMenus(prev => 
+      prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label]
+    );
+  };
+
   return (
     <>
-      {/* Logo */}
-      <div className="flex items-center justify-between px-5 py-5 border-b border-white/[0.06]">
-        <Image src="/logo.png" alt="Epic Motion" width={120} height={42} className="dark:block hidden" priority />
-        <Image src="/logo-light.png" alt="Epic Motion" width={120} height={42} className="dark:hidden block" priority />
+      {/* Header: Perfil de Usuario */}
+      <div className="flex items-center justify-between px-5 py-6 border-b border-white/[0.06] bg-white/[0.02]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-epic-gold flex items-center justify-center text-black text-sm font-bold font-montserrat shrink-0 shadow-liquid transform -rotate-3 group-hover:rotate-0 transition-transform">
+            {inicial}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-montserrat font-bold text-white truncate tracking-tight">
+              {nombre}
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <p className="text-[10px] text-white/35 tracking-[0.06em] uppercase font-montserrat font-bold">
+                Online Admin
+              </p>
+            </div>
+          </div>
+        </div>
         {onClose && (
           <button
             type="button"
@@ -90,67 +128,123 @@ function SidebarInner({ pathname, nombre, inicial, onClose }: SidebarInnerProps)
       </div>
 
       {/* Navegación */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
         <motion.ul
           className="flex flex-col gap-0.5"
           variants={navListVariants}
           initial="hidden"
           animate="visible"
         >
-          {NAV_LINKS.map(({ href, label, icon: Icon }) => {
-            const activo = pathname === href || pathname.startsWith(href + "/");
+          {NAV_LINKS.map((link) => {
+            const hasChildren = !!link.children;
+            const isExpanded = expandedMenus.includes(link.label);
+            const isParentOfActive = hasChildren && link.children?.some(child => pathname === child.href || pathname.startsWith(child.href + "/"));
+            const activo = !hasChildren && (pathname === link.href || pathname.startsWith(link.href! + "/"));
+            
+            const Icon = link.icon;
+
             return (
-              <motion.li key={href} variants={navItemVariants}>
-                <Link
-                  href={href}
-                  onClick={onClose}
-                  className={[
-                    "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-inter font-medium",
-                    "transition-all duration-200 border border-transparent",
-                    activo
-                      ? "glass-nav-active text-white"
-                      : "text-white/50 hover:text-white/90 glass-nav-hover",
-                  ].join(" ")}
-                >
-                  <Icon
-                    size={16}
+              <motion.li key={link.label} variants={navItemVariants} className="flex flex-col">
+                {hasChildren ? (
+                  <>
+                    <button
+                      onClick={() => toggleMenu(link.label)}
+                      className={[
+                        "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-inter font-medium leading-none",
+                        "transition-all duration-200 border border-transparent",
+                        isParentOfActive
+                          ? "text-white"
+                          : "text-white/50 hover:text-white/90 glass-nav-hover",
+                      ].join(" ")}
+                    >
+                      <Icon
+                        size={16}
+                        className={[
+                          "shrink-0 transition-colors duration-200",
+                          isParentOfActive ? "text-epic-gold" : "text-white/40 group-hover:text-white/70",
+                        ].join(" ")}
+                      />
+                      <span className="tracking-[-0.01em]">{link.label}</span>
+                      <motion.div
+                        animate={{ rotate: isExpanded ? 90 : 0 }}
+                        className="ml-auto opacity-40 group-hover:opacity-100 transition-opacity"
+                      >
+                        <ChevronRight size={14} />
+                      </motion.div>
+                    </button>
+                    
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.ul
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden ml-9 mt-0.5 mb-1.5 flex flex-col gap-0.5 border-l border-white/5"
+                        >
+                          {link.children?.map(child => {
+                            const childActivo = pathname === child.href || pathname.startsWith(child.href + "/");
+                            const ChildIcon = child.icon;
+                            return (
+                              <li key={child.href}>
+                                <Link
+                                  href={child.href}
+                                  onClick={onClose}
+                                  className={[
+                                    "flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-inter transition-all",
+                                    childActivo
+                                      ? "text-epic-gold font-bold bg-epic-gold/5"
+                                      : "text-white/40 hover:text-white/70 hover:bg-white/[0.02]"
+                                  ].join(" ")}
+                                >
+                                  <ChildIcon size={12} className={childActivo ? "text-epic-gold" : "text-white/20"} />
+                                  <span>{child.label}</span>
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </motion.ul>
+                      )}
+                    </AnimatePresence>
+                  </>
+                ) : (
+                  <Link
+                    href={link.href!}
+                    onClick={onClose}
                     className={[
-                      "shrink-0 transition-colors duration-200",
-                      activo ? "text-epic-gold" : "text-white/40 group-hover:text-white/70",
+                      "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-inter font-medium leading-none",
+                      "transition-all duration-200 border border-transparent",
+                      activo
+                        ? "glass-nav-active text-white"
+                        : "text-white/50 hover:text-white/90 glass-nav-hover",
                     ].join(" ")}
-                  />
-                  <span className="tracking-[-0.01em]">{label}</span>
-                  {activo && (
-                    <ChevronRight size={12} className="ml-auto text-epic-gold/70" />
-                  )}
-                </Link>
+                  >
+                    <Icon
+                      size={16}
+                      className={[
+                        "shrink-0 transition-colors duration-200",
+                        activo ? "text-epic-gold" : "text-white/40 group-hover:text-white/70",
+                      ].join(" ")}
+                    />
+                    <span className="tracking-[-0.01em]">{link.label}</span>
+                    {activo && (
+                      <div className="ml-auto w-1 h-4 rounded-full bg-epic-gold shadow-[0_0_8px_rgba(255,184,0,0.5)]" />
+                    )}
+                  </Link>
+                )}
               </motion.li>
             );
           })}
         </motion.ul>
       </nav>
 
-      {/* Footer: usuario + logout */}
-      <div className="px-3 py-4 border-t border-white/[0.06]">
-        <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.06]">
-          <div className="w-8 h-8 rounded-full bg-epic-gold flex items-center justify-center text-black text-sm font-bold font-montserrat shrink-0 shadow-liquid">
-            {inicial}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-inter font-medium text-white truncate tracking-[-0.01em]">
-              {nombre}
-            </p>
-            <p className="text-[11px] text-white/35 tracking-[0.04em] uppercase font-montserrat">
-              Administrador
-            </p>
-          </div>
-        </div>
+      {/* Footer: logout */}
+      <div className="px-3 py-4 border-t border-white/[0.06] bg-black/10">
         <button
           onClick={() => signOut({ callbackUrl: "/login" })}
-          className="mt-1.5 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-inter text-white/40 hover:text-white/80 hover:bg-white/[0.04] border border-transparent hover:border-white/[0.06] transition-all duration-200"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-inter text-white/40 hover:text-red-400 hover:bg-red-500/5 border border-transparent hover:border-red-500/20 transition-all duration-200"
         >
-          <LogOut size={15} className="shrink-0" />
-          <span className="tracking-[-0.01em]">Cerrar sesión</span>
+          <LogOut size={16} className="shrink-0" />
+          <span className="tracking-[-0.01em] font-medium">Cerrar sesión</span>
         </button>
       </div>
     </>

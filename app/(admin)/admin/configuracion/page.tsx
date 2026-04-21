@@ -9,34 +9,43 @@ import ConfiguracionShell from '@/components/configuracion/ConfiguracionShell';
 // Una sola transacción RLS con las cinco queries en paralelo interno
 async function fetchConfiguracionData(session: Session | null) {
   return await withRLS(session, async (tx) => {
-    const [gruposData, alumnasData, cursosData, disciplinasData, profesoresData] = await Promise.all([
+    const [gruposData, alumnasData, cursosData, disciplinasData, staffData] = await Promise.all([
       svc.getGrupos(tx),
       svc.getAlumnas(tx),
       svc.getCursosEspeciales(tx),
       svc.getDisciplinas(tx),
-      svc.getProfesores(tx),
+      svc.getStaff(tx), // Nueva función que obtendremos
     ]);
 
-    return { gruposData, alumnasData, cursosData, disciplinasData, profesoresData };
+    return { gruposData, alumnasData, cursosData, disciplinasData, staffData };
   });
 }
 
 
 export default async function ConfiguracionPage() {
   const session = await getServerSession(authOptions);
-  const { gruposData, alumnasData, cursosData, disciplinasData, profesoresData } =
+  const { gruposData, alumnasData, cursosData, disciplinasData, staffData } =
     await fetchConfiguracionData(session);
 
   return (
     <div>
-      {/* Encabezado — renderizado en el servidor, sin JS */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-montserrat font-bold dark:text-white text-gray-900 tracking-[0.03em]">
-          Centro de Mando
-        </h1>
-        <p className="mt-1 text-sm font-inter dark:text-epic-silver text-gray-500">
-          Configura grupos, tarifas, staff y el contenido público de la academia.
-        </p>
+      {/* Encabezado — Diseño Liquid Glass */}
+      <div className="mb-10">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="h-0.5 w-8 bg-epic-gold rounded-full" />
+            <p className="text-[10px] font-montserrat font-bold text-epic-gold uppercase tracking-[0.3em]">
+              Management Center
+            </p>
+          </div>
+          <h1 className="text-4xl font-montserrat font-bold text-white tracking-[-0.03em]">
+            Centro de <span className="text-epic-gold">Mando</span>
+          </h1>
+          <p className="mt-2 text-sm font-inter text-white/40 tracking-tight leading-relaxed max-w-2xl">
+            Control total de la academia: gestiona grupos, supervisa el rendimiento de las alumnas, 
+            administra tu equipo de staff y personaliza la experiencia digital de Epic Motion.
+          </p>
+        </div>
       </div>
 
       <ConfiguracionShell
@@ -44,7 +53,7 @@ export default async function ConfiguracionPage() {
         alumnas={alumnasData}
         cursosEspeciales={cursosData}
         disciplinas={disciplinasData}
-        profesores={profesoresData}
+        staff={staffData}
       />
     </div>
   );

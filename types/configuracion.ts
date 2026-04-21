@@ -23,6 +23,14 @@ export interface GrupoConfigData {
   tarifa: { precioMensualidad: number } | null;
 }
 
+export interface HorarioAlumna {
+  disciplinaId: string;
+  nombre: string;
+  color: string | null;
+  dias: string[];
+  horaTexto: string;
+}
+
 export interface AlumnaConfigData {
   id: string;
   nombre: string;
@@ -35,7 +43,9 @@ export interface AlumnaConfigData {
   cargosPendientes: number;
   cargosVencidos: number;
   montoDeuda: number;
+  padreId: string;
   padre: { nombre: string; apellido: string; telefono: string | null; email: string };
+  horarios: HorarioAlumna[];
 }
 
 export interface CursoEspecialData {

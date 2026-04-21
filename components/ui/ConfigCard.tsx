@@ -2,18 +2,18 @@
 
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 
-// Variantes visuales del card
+// Variantes visuales del card con estética Liquid Glass
 const VARIANT_CLASSES = {
-  default: 'dark:bg-[#121212] bg-white border dark:border-white/8 border-gray-200',
-  cyan:    'dark:bg-[#0d1417] bg-cyan-50/60 border dark:border-cyan-500/15 border-cyan-200/60',
-  inset:   'dark:bg-zinc-900 bg-gray-50 border dark:border-white/8 border-gray-200',
+  default: 'glass p-6 rounded-[2rem] border-white/5 shadow-lg relative overflow-hidden',
+  cyan:    'bg-cyan-500/5 backdrop-blur-md p-6 rounded-[2rem] border-cyan-500/10 shadow-lg relative overflow-hidden',
+  inset:   'bg-black/10 backdrop-blur-sm p-6 rounded-[2rem] border-white/5 shadow-inner relative overflow-hidden',
 } as const;
 
-// Estilos de hover según variante (solo cuando es interactivo)
+// Estilos de hover con resplandor sutil (solo cuando es interactivo)
 const HOVER_CLASSES = {
-  default: 'hover:border-epic-gold/50 dark:hover:bg-[#181818] hover:shadow-md',
-  cyan:    'hover:border-cyan-500/40 dark:hover:bg-[#101c20] hover:shadow-md',
-  inset:   'hover:dark:bg-zinc-800 hover:bg-gray-100',
+  default: 'hover:border-epic-gold/20 hover:bg-white/[0.04] hover:shadow-epic-gold/5',
+  cyan:    'hover:border-cyan-400/20 hover:bg-cyan-500/10 hover:shadow-cyan-400/5',
+  inset:   'hover:bg-black/20',
 } as const;
 
 type Variant = keyof typeof VARIANT_CLASSES;

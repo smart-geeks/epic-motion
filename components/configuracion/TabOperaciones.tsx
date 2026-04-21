@@ -2,8 +2,17 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, ArrowRightLeft, CheckCircle2, ChevronRight, XCircle } from 'lucide-react';
+import { 
+  AlertTriangle, 
+  ArrowRightLeft, 
+  CheckCircle2, 
+  ChevronRight, 
+  XCircle,
+  Zap,
+  Info
+} from 'lucide-react';
 import Button from '@/components/ui/Button';
+import ConfigCard from '@/components/ui/ConfigCard';
 import { accionEjecutarPromocion } from '@/lib/actions/promociones';
 import type { AccionPromocionResult } from '@/lib/actions/promociones';
 
@@ -45,142 +54,150 @@ export default function TabOperaciones() {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      {/* ── Encabezado de sección ────────────────────────────────────────────── */}
-      <div>
-        <h2 className="font-montserrat font-bold text-sm tracking-[0.15em] uppercase dark:text-white text-gray-900">
-          Operaciones de Ciclo
-        </h2>
-        <p className="mt-1 font-inter text-sm dark:text-epic-silver text-gray-500">
-          Acciones masivas que afectan toda la base de alumnas. Úsalas al cerrar o iniciar un ciclo escolar.
-        </p>
-      </div>
-
-      {/* ── Card de promoción ─────────────────────────────────────────────────── */}
-      <div className="rounded-sm border dark:border-white/10 border-gray-200 overflow-hidden">
-        {/* Cabecera */}
-        <div className="px-5 py-4 dark:bg-white/3 bg-gray-50 border-b dark:border-white/8 border-gray-200 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-epic-gold/10 flex items-center justify-center shrink-0">
-            <ArrowRightLeft size={15} className="text-epic-gold" />
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      
+      {/* Sección: Promoción de Ciclo */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-3 mb-2 ps-1">
+          <div className="w-10 h-10 rounded-2xl bg-epic-gold/10 flex items-center justify-center shrink-0">
+            <Zap size={20} className="text-epic-gold" />
           </div>
           <div>
-            <p className="font-montserrat font-bold text-sm dark:text-white text-gray-900">
-              Promoción de Ciclo
-            </p>
-            <p className="font-inter text-xs dark:text-epic-silver text-gray-500 mt-0.5">
-              Mueve a todas las alumnas al grupo siguiente configurado en su grupo actual.
+            <h2 className="font-montserrat font-bold text-lg text-white">
+              Operaciones de <span className="text-epic-gold">Ciclo</span>
+            </h2>
+            <p className="font-inter text-sm text-white/40">
+              Acciones masivas globales para el cierre e inicio de cursos.
             </p>
           </div>
         </div>
 
-        {/* Cuerpo */}
-        <div className="px-5 py-4 space-y-4">
-          {/* Descripción */}
-          <ul className="space-y-1.5">
-            {[
-              'Actualiza el grupo de inscripción de cada alumna al grupo siguiente.',
-              'Recalcula el monto de mensualidad según la tarifa del nuevo grupo.',
-              'Solo afecta alumnas cuyo grupo actual tenga un "Grupo siguiente" configurado.',
-              'El cargo PENDIENTE más reciente se actualiza con el nuevo monto.',
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2">
-                <ChevronRight size={13} className="text-epic-gold mt-0.5 shrink-0" />
-                <span className="font-inter text-xs dark:text-white/70 text-gray-600">{item}</span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Zona de confirmación */}
-          {estado === 'confirmando' ? (
-            <div className="rounded-sm border border-amber-400/30 bg-amber-50 dark:bg-amber-900/15 p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="font-montserrat font-bold text-xs text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-                    Acción irreversible
-                  </p>
-                  <p className="mt-1 font-inter text-xs text-amber-700 dark:text-amber-300">
-                    Esta operación moverá a <strong>todas</strong> las alumnas al grupo siguiente.
-                    No se puede deshacer automáticamente. Asegúrate de haber respaldado el ciclo
-                    actual antes de continuar.
-                  </p>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Main Action Card */}
+          <div className="lg:col-span-7">
+            <ConfigCard>
+              <div className="flex items-start gap-4 p-2">
+                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0">
+                  <ArrowRightLeft size={24} className="text-white/60" />
                 </div>
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button variante="secondary" tamano="sm" onClick={cancelar}>
-                  Cancelar
-                </Button>
-                <Button tamano="sm" onClick={ejecutar}>
-                  Sí, ejecutar promoción
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <Button
-              variante="secondary"
-              tamano="sm"
-              loading={estado === 'procesando'}
-              onClick={solicitarConfirmacion}
-              disabled={estado === 'procesando'}
-            >
-              <ArrowRightLeft size={14} />
-              {estado === 'procesando' ? 'Procesando…' : 'Ejecutar Promoción de Ciclo'}
-            </Button>
-          )}
+                <div className="space-y-4 flex-1">
+                  <div>
+                    <h3 className="font-montserrat font-bold text-white text-base">
+                      Promoción de Ciclo Escolar
+                    </h3>
+                    <p className="text-sm font-inter text-white/40 mt-1 leading-relaxed">
+                      Mueve automáticamente a todas las alumnas inscritas a su grupo siguiente.
+                    </p>
+                  </div>
 
-          {/* Resultado */}
-          {resultado && estado === 'idle' && (
-            <div className="rounded-sm border dark:border-white/8 border-gray-200 p-4 space-y-3">
-              <p className="font-montserrat font-bold text-xs uppercase tracking-wide dark:text-white text-gray-800">
-                Resultado de la última ejecución
-              </p>
-
-              <div className="grid grid-cols-3 gap-3">
-                <Stat label="Promovidas" value={resultado.promovidas} color="green" />
-                <Stat label="Sin grupo siguiente" value={resultado.sinGrupoSiguiente} color="amber" />
-                <Stat label="Errores" value={resultado.errores.length} color="red" />
-              </div>
-
-              {resultado.errores.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  <p className="font-inter text-xs dark:text-white/50 text-gray-500">Detalle de errores:</p>
-                  {resultado.errores.map((e) => (
-                    <div key={e.alumnaId} className="flex items-start gap-1.5">
-                      <XCircle size={12} className="text-red-400 mt-0.5 shrink-0" />
-                      <span className="font-inter text-xs dark:text-white/60 text-gray-600">
-                        <span className="font-mono">{e.alumnaId.slice(0, 8)}…</span> — {e.detalle}
-                      </span>
+                  <div className="bg-white/5 rounded-2xl p-5 border border-white/5 space-y-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Info size={14} className="text-epic-gold" />
+                      <p className="text-[10px] font-montserrat font-bold uppercase tracking-wider text-white/60">¿Qué sucede al ejecutar?</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                    <ul className="space-y-2.5 ps-1">
+                      {[
+                        'Actualiza el grupo de cada alumna.',
+                        'Recalcula mensualidades según nuevas tarifas.',
+                        'Solo afecta grupos con "Siguiente" configurado.',
+                        'Afecta cargos PENDIENTES activos.'
+                      ].map((item) => (
+                        <li key={item} className="flex items-start gap-2">
+                          <ChevronRight size={14} className="text-epic-gold shrink-0 mt-0.5" />
+                          <span className="font-inter text-xs text-white/60">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
 
-              {resultado.errores.length === 0 && resultado.promovidas > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-green-400" />
-                  <span className="font-inter text-xs text-green-600 dark:text-green-400">
-                    Promoción completada sin errores.
-                  </span>
+                  {estado === 'confirmando' ? (
+                    <div className="bg-amber-500/10 rounded-2xl p-5 border border-amber-500/20 space-y-4">
+                      <div className="flex gap-3 text-amber-400">
+                        <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                        <p className="text-xs font-inter leading-relaxed">
+                          <strong className="block text-sm font-montserrat font-bold mb-1">ATENCIÓN</strong>
+                          Esta acción es masiva e irreversible. Una vez iniciada, no hay marcha atrás automática.
+                        </p>
+                      </div>
+                      <div className="flex gap-3 justify-end items-center">
+                        <button onClick={cancelar} className="text-xs font-montserrat font-bold text-white/40 hover:text-white uppercase tracking-widest px-4 py-2">
+                          Cancelar
+                        </button>
+                        <Button 
+                          tamano="sm" 
+                          onClick={ejecutar}
+                          className="bg-amber-500 hover:bg-amber-600 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                        >
+                          Confirmar Promoción
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variante="secondary"
+                      loading={estado === 'procesando'}
+                      onClick={solicitarConfirmacion}
+                      disabled={estado === 'procesando'}
+                      className="w-full justify-center group py-4 h-auto rounded-2xl text-base font-montserrat font-bold uppercase tracking-widest"
+                    >
+                      <ArrowRightLeft size={18} className="group-hover:rotate-180 transition-transform duration-500" />
+                      {estado === 'procesando' ? 'Procesando ciclo…' : 'Iniciar Promoción Global'}
+                    </Button>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            </ConfigCard>
+          </div>
+
+          {/* Results Sidebar */}
+          <div className="lg:col-span-5">
+            {resultado ? (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <StatCard label="Promovidas" value={resultado.promovidas} color="text-green-400" bg="bg-green-500/5" icon={CheckCircle2} />
+                  <StatCard label="Errores" value={resultado.errores.length} color="text-red-400" bg="bg-red-500/5" icon={XCircle} />
+                  <StatCard label="Sin Grupo Sig." value={resultado.sinGrupoSiguiente} color="text-amber-400" bg="bg-amber-500/5" icon={AlertTriangle} className="col-span-2" />
+                </div>
+
+                {resultado.errores.length > 0 && (
+                  <ConfigCard variant="inset" className="!p-4">
+                    <p className="text-[10px] font-montserrat font-bold uppercase tracking-widest text-white/30 mb-3 ps-1">Errores detectados</p>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                      {resultado.errores.map((e, idx) => (
+                        <div key={idx} className="flex items-start gap-2 bg-white/5 rounded-xl p-3 border border-white/5">
+                          <XCircle size={14} className="text-red-400 shrink-0 mt-0.5" />
+                          <p className="text-[11px] font-inter text-white/60 leading-snug">
+                            {e.detalle}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ConfigCard>
+                )}
+              </div>
+            ) : (
+              <div className="glass p-8 rounded-[2.5rem] border-white/5 flex flex-col items-center justify-center text-center h-full min-h-[300px]">
+                <div className="w-16 h-16 rounded-3xl bg-white/5 flex items-center justify-center mb-4">
+                  <Zap size={32} className="text-white/10" />
+                </div>
+                <p className="text-sm font-inter text-white/20 italic">
+                  No se han ejecutado promociones<br/>en esta sesión.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
 
-function Stat({ label, value, color }: { label: string; value: number; color: 'green' | 'amber' | 'red' }) {
-  const colorMap = {
-    green: 'text-green-500 dark:text-green-400',
-    amber: 'text-amber-500 dark:text-amber-400',
-    red:   'text-red-500 dark:text-red-400',
-  };
+function StatCard({ label, value, color, bg, icon: Icon, className = "" }: { label: string; value: number; color: string; bg: string; icon: any; className?: string }) {
   return (
-    <div className="rounded-sm border dark:border-white/8 border-gray-200 px-3 py-2 text-center">
-      <p className={`font-montserrat font-bold text-xl ${colorMap[color]}`}>{value}</p>
-      <p className="font-inter text-xs dark:text-white/50 text-gray-500 mt-0.5">{label}</p>
+    <div className={`${bg} rounded-[2rem] p-6 border border-white/5 flex flex-col items-center justify-center text-center ${className}`}>
+      <Icon size={16} className={`${color} mb-3`} />
+      <p className={`font-montserrat font-bold text-3xl ${color} tracking-tight`}>{value}</p>
+      <p className="text-[10px] uppercase font-montserrat font-bold tracking-widest text-white/30 mt-1">{label}</p>
     </div>
   );
 }
