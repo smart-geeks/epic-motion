@@ -11,6 +11,7 @@ export async function getAlumnas(tx: PrismaTransactionClient): Promise<AlumnaCon
     select: {
       id: true, nombre: true, apellido: true, foto: true,
       fechaNacimiento: true, estatus: true, invitadaCompetencia: true,
+      padre: { select: { nombre: true, apellido: true, telefono: true, email: true } },
       clases: {
         where: { grupoId: { not: null } },
         select: { grupo: { select: { id: true, nombre: true } } },
@@ -38,6 +39,7 @@ export async function getAlumnas(tx: PrismaTransactionClient): Promise<AlumnaCon
       cargosPendientes: pendientes.length,
       cargosVencidos: vencidos.length,
       montoDeuda: a.cargos.reduce((sum, c) => sum + c.montoFinal.toNumber(), 0),
+      padre: { nombre: a.padre.nombre, apellido: a.padre.apellido, telefono: a.padre.telefono, email: a.padre.email },
     };
   });
 }

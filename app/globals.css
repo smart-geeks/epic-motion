@@ -93,6 +93,15 @@
     border: 1px solid rgba(255, 255, 255, 0.06);
   }
 
+  /* ── Portal dropdown — posición calculada desde JS vía CSS vars ────────── */
+  .dropdown-portal {
+    position: fixed;
+    top: var(--dp-top);
+    left: var(--dp-left);
+    width: var(--dp-width);
+    z-index: 9999;
+  }
+
   /* ── Sidebar móvil — borde orgánico derecho ───────────────────────────── */
   .sidebar-mobile {
     border-radius: 0 2rem 2rem 0;

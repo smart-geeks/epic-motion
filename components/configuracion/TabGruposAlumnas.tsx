@@ -3,7 +3,9 @@
 import { useOptimistic, useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ChevronDown, Loader2, Pencil, Plus, Star, Sun, Users } from 'lucide-react';
+import { Pencil, Plus, Sun, Users } from 'lucide-react';
+import AlumnaDetailModal from '@/components/configuracion/modals/AlumnaDetailModal';
+import GrupoSelect from '@/components/ui/GrupoSelect';
 import type { GrupoConfigData, AlumnaConfigData, CursoEspecialData, DisciplinaConfigData, ProfesorData, ReasignacionResult } from '@/types/configuracion';
 import { toggleInvitacionCompetencia, reasignarAlumna } from '@/lib/actions/config-grupos';
 import { FMT_MXN } from '@/lib/format';
@@ -47,6 +49,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
   const cursoEditando = cursosEspeciales.find((c) => c.id === cursoEditandoId) ?? null;
 
   const [nuevoGrupoOpen, setNuevoGrupoOpen] = useState(false);
+  const [alumnaDetalleId, setAlumnaDetalleId] = useState<string | null>(null);
 
   // Estado de interacciones
   const [confirm, setConfirm] = useState<ConfirmReasignacion | null>(null);
@@ -60,6 +63,10 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
       state.map((a) => (a.id === id ? { ...a, invitadaCompetencia } : a)),
   );
 
+  const alumnaDetalle = alumnaDetalleId
+    ? (optimisticAlumnas.find((a) => a.id === alumnaDetalleId) ?? null)
+    : null;
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   function handleToggleStar(alumna: AlumnaConfigData) {
@@ -69,7 +76,6 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
       if (res.ok) {
         router.refresh();
       } else {
-        // useOptimistic revierte automáticamente al estado original si no se refresca
         toast.error(res.error ?? 'Error al actualizar la estrella.');
       }
     });
@@ -265,76 +271,81 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
     );
   }
 
-  // ── Render: vista alumnas ─────────────────────────────────────────────────
+  // ── Render: vista alumnas (agrupadas por grupo) ──────────────────────────
 
   function renderAlumnas() {
+    if (optimisticAlumnas.length === 0) {
+      return (
+        <div className="py-12 text-center">
+          <p className="font-inter text-sm dark:text-epic-silver text-gray-500">No hay alumnas registradas.</p>
+        </div>
+      );
+    }
+
+    const agrupadas = optimisticAlumnas.reduce<Record<string, AlumnaConfigData[]>>((acc, a) => {
+      const key = a.grupoActual?.id ?? '';
+      (acc[key] ??= []).push(a);
+      return acc;
+    }, {});
+
+    const claves = Object.keys(agrupadas).sort((a, b) => {
+      if (a === '') return 1;
+      if (b === '') return -1;
+      const na = grupos.find((g) => g.id === a)?.nombre ?? '';
+      const nb = grupos.find((g) => g.id === b)?.nombre ?? '';
+      return na.localeCompare(nb);
+    });
+
     return (
-      <div className="space-y-1">
-        {optimisticAlumnas.map((a) => {
-          const inicial = `${a.nombre[0]}${a.apellido[0]}`.toUpperCase();
-          const reasignPending = pendingReasign.has(a.id);
+      <div className="space-y-6">
+        {claves.map((grupoId) => {
+          const lista = agrupadas[grupoId].slice().sort((a, b) =>
+            `${a.nombre} ${a.apellido}`.localeCompare(`${b.nombre} ${b.apellido}`),
+          );
+          const grupoNombre = grupoId
+            ? (grupos.find((g) => g.id === grupoId)?.nombre ?? grupoId)
+            : 'Sin grupo';
 
           return (
-            <div
-              key={a.id}
-              className="flex items-center gap-3 px-3 py-3 rounded-xl dark:hover:bg-zinc-800 hover:bg-gray-50 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-full bg-epic-gold/15 flex items-center justify-center shrink-0 font-montserrat font-bold text-xs text-epic-gold">
-                {inicial}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-inter text-sm font-medium dark:text-white text-gray-900 truncate">
-                  {a.nombre} {a.apellido}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <CargoBadge pendientes={a.cargosPendientes} vencidos={a.cargosVencidos} monto={a.montoDeuda} />
-                </div>
+            <div key={grupoId || '__sin_grupo'} className="glass-card rounded-2xl overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-3 border-b dark:border-epic-gold/20 border-amber-200/40">
+                <span className="font-montserrat font-bold text-[11px] tracking-[0.15em] uppercase text-epic-gold">
+                  {grupoNombre}
+                </span>
+                <div className="flex-1 h-px dark:bg-epic-gold/15 bg-amber-200/50" />
+                <span className="font-inter text-[11px] dark:text-white/30 text-gray-400 shrink-0">
+                  {lista.length} alumna{lista.length !== 1 ? 's' : ''}
+                </span>
               </div>
 
-              <div className="relative shrink-0">
-                {reasignPending ? (
-                  <div className="w-36 flex items-center justify-center py-2">
-                    <Loader2 size={13} className="animate-spin dark:text-white/40 text-gray-400" />
-                  </div>
-                ) : (
-                  <>
-                    <select
-                      aria-label={`Grupo de ${a.nombre} ${a.apellido}`}
-                      title={`Grupo actual de ${a.nombre} ${a.apellido}`}
-                      value={a.grupoActual?.id ?? ''}
-                      onChange={(e) => handleReasignar(a.id, e.target.value)}
-                      className="appearance-none w-36 pl-2 pr-7 py-1.5 rounded-lg text-xs font-inter dark:bg-white/5 bg-gray-100 dark:text-white/70 text-gray-700 border dark:border-white/8 border-gray-200 focus:outline-none focus:border-epic-gold/50 cursor-pointer transition-colors"
+              <div className="divide-y dark:divide-white/[0.04] divide-gray-100">
+                {lista.map((a) => {
+                  const inicial = `${a.nombre[0]}${a.apellido[0]}`.toUpperCase();
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setAlumnaDetalleId(a.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 dark:hover:bg-white/[0.03] hover:bg-gray-50/60 transition-colors text-left"
                     >
-                      <option value="">Sin grupo</option>
-                      {grupos.map((g) => (
-                        <option key={g.id} value={g.id}>{g.nombre}</option>
-                      ))}
-                    </select>
-                    <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
-                  </>
-                )}
+                      <div className="w-9 h-9 rounded-full bg-epic-gold/15 flex items-center justify-center shrink-0 font-montserrat font-bold text-xs text-epic-gold">
+                        {inicial}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-inter text-sm font-medium dark:text-white text-gray-900 truncate">
+                          {a.nombre} {a.apellido}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <CargoBadge pendientes={a.cargosPendientes} vencidos={a.cargosVencidos} monto={a.montoDeuda} />
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-
-              <button
-                type="button"
-                onClick={() => handleToggleStar(a)}
-                title={a.invitadaCompetencia ? 'Quitar de competencia' : 'Invitar a competencia'}
-                className="shrink-0 p-1.5 rounded-lg transition-colors hover:bg-epic-gold/10"
-              >
-                <Star
-                  size={15}
-                  className={a.invitadaCompetencia ? 'fill-epic-gold text-epic-gold' : 'dark:text-white/25 text-gray-300'}
-                />
-              </button>
             </div>
           );
         })}
-
-        {alumnas.length === 0 && (
-          <div className="py-12 text-center">
-            <p className="font-inter text-sm dark:text-epic-silver text-gray-500">No hay alumnas registradas.</p>
-          </div>
-        )}
       </div>
     );
   }
@@ -380,7 +391,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
       {/* Contenido */}
       {vista === 'grupos' ? renderGrupos() : renderAlumnas()}
 
-      {/* Modal detalle: alumnas + disciplinas */}
+      {/* Modal detalle: grupo */}
       {grupoDetalle && (
         <GrupoDetailModal
           grupo={grupoDetalle}
@@ -425,9 +436,22 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
         />
       )}
 
-      {/* Confirm: reasignación fuera de rango de edad */}
+      {/* Modal detalle alumna */}
+      {alumnaDetalle && (
+        <AlumnaDetailModal
+          alumna={alumnaDetalle}
+          grupo={grupos.find((g) => g.id === alumnaDetalle.grupoActual?.id) ?? null}
+          grupos={grupos}
+          isPendingReasign={pendingReasign.has(alumnaDetalle.id)}
+          onClose={() => setAlumnaDetalleId(null)}
+          onReasignar={(grupoId) => handleReasignar(alumnaDetalle.id, grupoId)}
+          onToggleStar={() => handleToggleStar(alumnaDetalle)}
+        />
+      )}
+
+      {/* Confirm: reasignación fuera de rango de edad — z-[60] para estar sobre el modal */}
       {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-sm dark:bg-[#1a1a1a] bg-white rounded-2xl border dark:border-white/8 border-gray-200 shadow-2xl p-6 space-y-4">
             <p className="font-montserrat font-bold text-sm dark:text-white text-gray-900">Rango de edad diferente</p>
             <p className="font-inter text-sm dark:text-epic-silver text-gray-600 leading-relaxed">{confirm.mensaje}</p>

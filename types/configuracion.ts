@@ -35,6 +35,7 @@ export interface AlumnaConfigData {
   cargosPendientes: number;
   cargosVencidos: number;
   montoDeuda: number;
+  padre: { nombre: string; apellido: string; telefono: string | null; email: string };
 }
 
 export interface CursoEspecialData {
