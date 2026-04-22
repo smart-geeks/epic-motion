@@ -105,6 +105,7 @@ export interface EstadoWizard {
   paso: 1 | 2 | 3;
   esReinscripcion: boolean;
   alumnaIdExistente: string | null;
+  padreIdExistente: string | null; // ID del tutor existente para ligar hermanas
   alumna: DatosAlumnaWizard;
   tutor: DatosTutorWizard;
   infoGeneral: DatosInfoGeneralWizard;
@@ -123,6 +124,7 @@ export interface EstadoWizard {
 
 export interface InscripcionPayload {
   alumnaId?: string; // presente solo en reinscripción
+  padreId?: string;  // presente al ligar hermanas (usa tutor existente)
   alumna: DatosAlumnaWizard;
   tutor: DatosTutorWizard;
   infoGeneral: DatosInfoGeneralWizard;
@@ -151,5 +153,11 @@ export interface AlumnaBusqueda {
     apellido: string;
     email: string;
     telefono: string | null;
+    telefonoTrabajo: string | null;
+    nombreConyuge: string | null;
+    celularConyuge: string | null;
+    emailConyuge: string | null;
+    telefonoTrabajoConyuge: string | null;
+    domicilio: string | null;
   };
 }

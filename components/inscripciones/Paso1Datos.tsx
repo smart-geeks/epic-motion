@@ -36,8 +36,9 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
     tutor, setDatosTutor,
     infoGeneral, setInfoGeneral,
     grupoSeleccionadoId, setGrupoSeleccionado,
-    esReinscripcion, alumnaIdExistente,
+    esReinscripcion, alumnaIdExistente, padreIdExistente,
     cargarAlumnaExistente, cancelarReinscripcion,
+    vincularPadreExistente, desvincularPadre,
     setPaso,
   } = useWizardInscripcion();
 
@@ -80,18 +81,37 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
         nombreMadre: a.padre.nombre + ' ' + a.padre.apellido,
         celularMadre: a.padre.telefono ?? '',
         emailMadre: a.padre.email,
-        telefonoTrabajoMadre: '',
-        nombrePadre: '',
-        celularPadre: '',
-        emailPadre: '',
-        telefonoTrabajoPadre: '',
-        domicilio: '',
+        telefonoTrabajoMadre: a.padre.telefonoTrabajo ?? '',
+        nombrePadre: a.padre.nombreConyuge ?? '',
+        celularPadre: a.padre.celularConyuge ?? '',
+        emailPadre: a.padre.emailConyuge ?? '',
+        telefonoTrabajoPadre: a.padre.telefonoTrabajoConyuge ?? '',
+        domicilio: a.padre.domicilio ?? '',
       }
     );
     setResultadosBusqueda([]);
     setBusqueda('');
     toast.success(`Reinscripción de ${a.nombre} ${a.apellido}`, {
       description: `Estatus anterior: ${a.estatus}${edad ? ` · ${edad} años` : ''}`,
+    });
+  };
+
+  const seleccionarFamiliaExistente = (a: AlumnaBusqueda) => {
+    vincularPadreExistente(a.padre.id, {
+      nombreMadre: a.padre.nombre + ' ' + a.padre.apellido,
+      celularMadre: a.padre.telefono ?? '',
+      emailMadre: a.padre.email,
+      telefonoTrabajoMadre: a.padre.telefonoTrabajo ?? '',
+      nombrePadre: a.padre.nombreConyuge ?? '',
+      celularPadre: a.padre.celularConyuge ?? '',
+      emailPadre: a.padre.emailConyuge ?? '',
+      telefonoTrabajoPadre: a.padre.telefonoTrabajoConyuge ?? '',
+      domicilio: a.padre.domicilio ?? '',
+    });
+    setResultadosBusqueda([]);
+    setBusqueda('');
+    toast.success('Familia vinculada', {
+      description: `Se usará la información del tutor de ${a.nombre} ${a.apellido}`,
     });
   };
 
@@ -120,94 +140,130 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
   const edad = calcularEdad(alumna.fechaNacimiento);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
 
       {/* ── Búsqueda de reinscripción ─────────────────────────────────── */}
-      <div className="p-4 rounded-sm bg-transparent dark:bg-black/40 border border-gray-200 dark:border-white/10">
-        <p className="font-inter text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-epic-silver mb-3">
-          ¿Es reinscripción?
-        </p>
+      <div className="glass-card rounded-3xl p-6 bg-white/[0.02]">
+        <div className="flex items-center gap-2 mb-4">
+          <Search size={14} className="text-epic-gold" />
+          <p className="font-montserrat text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
+            ¿Es reinscripción o hermana?
+          </p>
+        </div>
 
         {esReinscripcion && alumnaIdExistente ? (
-          <div className="flex items-center justify-between gap-3 p-3 rounded-sm bg-epic-gold/10 border border-epic-gold/30">
-            <div className="flex items-center gap-2">
-              <UserCheck size={16} className="text-epic-gold shrink-0" />
-              <span className="font-inter text-sm font-medium text-epic-black dark:text-white">
-                Reinscripción: {alumna.nombre} {alumna.apellido}
-              </span>
+          <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-epic-gold/5 border border-epic-gold/20">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-epic-gold/20 flex items-center justify-center">
+                <UserCheck size={16} className="text-epic-gold" />
+              </div>
+              <div>
+                <p className="font-inter text-xs text-white/40 uppercase tracking-wider font-bold">Reinscripción Activa</p>
+                <p className="font-montserrat text-sm font-bold text-white uppercase tracking-tight">
+                  {alumna.nombre} {alumna.apellido}
+                </p>
+              </div>
             </div>
             <button
               type="button"
               onClick={cancelarReinscripcion}
-              className="text-gray-400 dark:text-white/30 hover:text-epic-black dark:hover:text-white"
+              className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-colors"
               title="Cancelar reinscripción"
-              aria-label="Cancelar reinscripción"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ) : padreIdExistente ? (
+          <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <UserCheck size={16} className="text-blue-500" />
+              </div>
+              <div>
+                <p className="font-inter text-xs text-white/40 uppercase tracking-wider font-bold">Familia Vinculada</p>
+                <p className="font-montserrat text-sm font-bold text-white uppercase tracking-tight">
+                  {tutor.nombreMadre || tutor.nombrePadre}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={desvincularPadre}
+              className="w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-colors"
+              title="Desvincular familia"
             >
               <X size={16} />
             </button>
           </div>
         ) : (
           <div className="flex gap-2">
-            <input
-              type="text"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && buscarAlumna()}
-              placeholder="Buscar alumna por nombre..."
-              className="flex-1 font-inter text-sm px-3.5 py-2.5 bg-transparent dark:bg-black/40 border border-gray-200 dark:border-white/20 text-epic-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-white/40 focus:outline-none focus:border-epic-gold focus:ring-1 focus:ring-epic-gold/40 rounded-sm transition-colors"
-            />
+            <div className="relative flex-1 group">
+               <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20 group-focus-within:text-epic-gold transition-colors" />
+                <input
+                  type="text"
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && buscarAlumna()}
+                  placeholder="Buscar alumna por nombre..."
+                  className="w-full font-inter text-sm pl-12 pr-4 py-3.5 bg-black/40 border border-white/10 text-white placeholder:text-white/20 focus:outline-none focus:border-epic-gold/50 focus:ring-1 focus:ring-epic-gold/20 rounded-2xl transition-all"
+                />
+            </div>
             <Button
               type="button"
               variante="secondary"
               tamano="md"
               loading={buscando}
               onClick={buscarAlumna}
+              className="rounded-2xl"
             >
-              <Search size={15} />
+              Buscar
             </Button>
           </div>
         )}
 
         {/* Resultados de búsqueda */}
         {resultadosBusqueda.length > 0 && (
-          <ul className="mt-2 border border-gray-200 dark:border-white/10 rounded-sm overflow-hidden">
+          <div className="mt-3 bg-black/40 border border-white/10 rounded-2xl overflow-hidden divide-y divide-white/5">
             {resultadosBusqueda.map((a) => (
-              <li key={a.id}>
+              <div key={a.id} className="flex items-center hover:bg-white/[0.03] transition-colors group">
                 <button
                   type="button"
                   onClick={() => seleccionarAlumnaExistente(a)}
-                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors flex items-center justify-between gap-4"
+                  className="flex-1 text-left px-5 py-4 flex flex-col"
                 >
-                  <div>
-                    <p className="font-inter text-sm font-medium text-epic-black dark:text-white">
-                      {a.nombre} {a.apellido}
-                    </p>
-                    <p className="font-inter text-xs text-gray-400 dark:text-white/30">
-                      Tutor: {a.padre.nombre} {a.padre.apellido} · {a.padre.email}
-                    </p>
-                  </div>
-                  <span
-                    className={[
-                      'font-inter text-xs px-2 py-0.5 rounded-full',
-                      a.estatus === 'ACTIVA'
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-epic-silver',
-                    ].join(' ')}
-                  >
-                    {a.estatus}
+                  <p className="font-montserrat text-xs font-bold text-white uppercase tracking-wider group-hover:text-epic-gold transition-colors">
+                    Reinscribir a {a.nombre} {a.apellido}
+                  </p>
+                  <p className="font-inter text-[10px] text-white/20 mt-0.5">
+                    ID Alumna: {a.id.split('-')[0]} • Status: {a.estatus}
+                  </p>
+                </button>
+                <div className="h-10 w-px bg-white/5" />
+                <button
+                  type="button"
+                  onClick={() => seleccionarFamiliaExistente(a)}
+                  className="px-6 py-4 text-epic-gold hover:bg-epic-gold/10 transition-all flex flex-col items-center gap-0.5"
+                >
+                  <UserCheck size={14} />
+                  <span className="font-montserrat text-[10px] font-black uppercase tracking-widest">
+                    Ligar Hermana
                   </span>
                 </button>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
       {/* ── Sección: ALUMNA/O ─────────────────────────────────────────── */}
-      <section>
-        <h3 className="font-montserrat font-bold text-xs tracking-[0.18em] uppercase text-epic-black dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-white/8">
-          Alumna/o
-        </h3>
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+           <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+           <h3 className="font-montserrat font-bold text-[10px] tracking-[0.3em] uppercase text-epic-gold/50">
+             Datos de la Alumna
+           </h3>
+           <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="Nombre"
@@ -255,10 +311,14 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
       </section>
 
       {/* ── Sección: DISCIPLINA / GRUPO ──────────────────────────────── */}
-      <section>
-        <h3 className="font-montserrat font-bold text-xs tracking-[0.18em] uppercase text-epic-black dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-white/8">
-          Disciplina / Grupo
-        </h3>
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+           <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+           <h3 className="font-montserrat font-bold text-[10px] tracking-[0.3em] uppercase text-epic-gold/50">
+             Disciplina y Grupo
+           </h3>
+           <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+        </div>
         <ArmadorClases
           grupos={grupos}
           fechaNacimiento={alumna.fechaNacimiento}
@@ -270,10 +330,14 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
       </section>
 
       {/* ── Sección: PADRE / MADRE / TUTOR ───────────────────────────── */}
-      <section>
-        <h3 className="font-montserrat font-bold text-xs tracking-[0.18em] uppercase text-epic-black dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-white/8">
-          Padre, Madre o Tutor
-        </h3>
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+           <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+           <h3 className="font-montserrat font-bold text-[10px] tracking-[0.3em] uppercase text-epic-gold/50">
+             Información del Tutor
+           </h3>
+           <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+        </div>
         {errores.tutor && (
           <p className="font-inter text-xs text-red-500 dark:text-red-400 mb-3">{errores.tutor}</p>
         )}
@@ -359,10 +423,14 @@ export default function Paso1Datos({ grupos, cicloEscolar }: Paso1DatosProps) {
       </section>
 
       {/* ── Sección: INFORMACIÓN GENERAL ─────────────────────────────── */}
-      <section>
-        <h3 className="font-montserrat font-bold text-xs tracking-[0.18em] uppercase text-epic-black dark:text-white mb-4 pb-2 border-b border-gray-100 dark:border-white/8">
-          Información General
-        </h3>
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+           <div className="h-px flex-1 bg-gradient-to-r from-transparent to-white/10" />
+           <h3 className="font-montserrat font-bold text-[10px] tracking-[0.3em] uppercase text-epic-gold/50">
+             Otros Datos
+           </h3>
+           <div className="h-px flex-1 bg-gradient-to-l from-transparent to-white/10" />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {/* Otra academia */}
           <div className="space-y-2">

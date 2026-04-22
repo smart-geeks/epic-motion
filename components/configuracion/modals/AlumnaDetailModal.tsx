@@ -2,8 +2,10 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Star, CreditCard, Clock, UserCircle2, Phone, Mail, CalendarDays, Loader2, Check } from 'lucide-react';
+import { X, Star, CreditCard, Clock, UserCircle2, Phone, Mail, CalendarDays, Loader2, Check, Users, Link2, ChevronRight } from 'lucide-react';
 import type { AlumnaConfigData, GrupoConfigData } from '@/types/configuracion';
+import { getHermanasSummary, buscarAlumnasParaAsociar, asociarHermana } from '@/lib/actions/alumnas';
+import { toast } from 'sonner';
 import CargoBadge from '@/components/ui/CargoBadge';
 import GrupoSelect from '@/components/ui/GrupoSelect';
 import { FMT_MXN } from '@/lib/format';
@@ -64,6 +66,30 @@ export default function AlumnaDetailModal({
     email: alumna.padre.email ?? '',
   });
 
+  // Estado hermanas
+  const [hermanas, setHermanas] = useState<any[]>([]);
+  const [loadingHermanas, setLoadingHermanas] = useState(false);
+  const [showSearchHermanas, setShowSearchHermanas] = useState(false);
+  const [queryHermanas, setQueryHermanas] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearchingHermanas, setIsSearchingHermanas] = useState(false);
+
+  // Cargar hermanas
+  useEffect(() => {
+    async function load() {
+      setLoadingHermanas(true);
+      try {
+        const res = await getHermanasSummary(alumna.id, alumna.padreId);
+        setHermanas(res);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingHermanas(false);
+      }
+    }
+    load();
+  }, [alumna.id, alumna.padreId]);
+
   // Sincronizar cuando cambia el grupo o la alumna
   useEffect(() => {
     setSelectedDiscs(new Set(alumna.horarios.map((h) => h.disciplinaId)));
@@ -104,6 +130,40 @@ export default function AlumnaDetailModal({
     }
 
     onUpdateDisciplinas(Array.from(next));
+  }
+
+  async function handleSearchHermanas(q: string) {
+    setQueryHermanas(q);
+    if (q.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+    setIsSearchingHermanas(true);
+    try {
+      const res = await buscarAlumnasParaAsociar(q, alumna.padreId);
+      setSearchResults(res);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSearchingHermanas(false);
+    }
+  }
+
+  async function handleAsociarHermana(alumnaAAsociarId: string) {
+    const ok = confirm('¿Confirmas que deseas asociar esta alumna como hermana? Esto unificará el responsable de pago y el expediente familiar.');
+    if (!ok) return;
+
+    try {
+      await asociarHermana(alumnaAAsociarId, alumna.padreId);
+      toast.success('Hermanas vinculadas correctamente');
+      setShowSearchHermanas(false);
+      // Recargar hermanas
+      const res = await getHermanasSummary(alumna.id, alumna.padreId);
+      setHermanas(res);
+    } catch (err) {
+      toast.error('Error al vincular hermanas');
+      console.error(err);
+    }
   }
 
   function handleOverlayClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -429,7 +489,118 @@ export default function AlumnaDetailModal({
             </div>
           </div>
 
-          {/* ── 6. Invitar a grupo de competencia ── */}
+          {/* ── 6. Hermanas (Familia) ── */}
+          <div className="pt-2">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center gap-2">
+                <Users size={13} className="dark:text-white/30 text-gray-400 shrink-0" />
+                <p className="font-inter text-[10px] tracking-[0.1em] uppercase dark:text-white/30 text-gray-400">
+                  Hermanas / Familia
+                </p>
+              </div>
+              {!showSearchHermanas && (
+                <button
+                  type="button"
+                  onClick={() => setShowSearchHermanas(true)}
+                  className="text-[10px] font-bold text-epic-gold hover:underline uppercase tracking-wider"
+                >
+                  Asociar
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              {loadingHermanas ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 size={16} className="animate-spin text-epic-gold/40" />
+                </div>
+              ) : hermanas.length === 0 && !showSearchHermanas ? (
+                <p className="font-inter text-[10px] dark:text-white/20 text-gray-400 text-center py-2 italic border border-dashed dark:border-white/10 border-gray-200 rounded-2xl">
+                  No se encontraron hermanas vinculadas
+                </p>
+              ) : (
+                hermanas.map(h => (
+                  <div key={h.id} className="glass-card rounded-2xl p-3 flex items-center justify-between group/h hover:bg-white/[0.04] transition-colors">
+                    <div className="flex items-center gap-3">
+                      {h.foto ? (
+                        <img src={h.foto} alt={h.nombre} className="w-8 h-8 rounded-lg object-cover ring-1 ring-white/10" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-epic-gold/10 flex items-center justify-center text-[10px] font-bold text-epic-gold">
+                          {h.nombre[0]}{h.apellido[0]}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-inter text-xs font-bold dark:text-white/90 text-gray-800">
+                          {h.nombre} {h.apellido}
+                        </p>
+                        <p className="font-inter text-[9px] dark:text-white/30 text-gray-400 truncate">
+                          {h.grupoNombre} • {h.estatus}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right flex items-center gap-3">
+                      <div className="hidden group-hover/h:block">
+                        <p className="text-[10px] font-bold dark:text-red-400/80 text-red-600">
+                          {h.deudaTotal > 0 ? FMT_MXN.format(h.deudaTotal) : 'Al corriente'}
+                        </p>
+                      </div>
+                      <ChevronRight size={14} className="dark:text-white/10 text-gray-300" />
+                    </div>
+                  </div>
+                ))
+              )}
+
+              {/* Buscador de hermanas */}
+              {showSearchHermanas && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-2 p-3 rounded-2xl bg-epic-gold/5 border border-epic-gold/20"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[9px] font-bold text-epic-gold uppercase tracking-wider">Vincular Hermana</p>
+                    <button onClick={() => setShowSearchHermanas(false)} className="text-white/40 hover:text-white">
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Buscar por nombre..."
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-epic-gold/50"
+                    onChange={(e) => handleSearchHermanas(e.target.value)}
+                  />
+                  
+                  {isSearchingHermanas ? (
+                    <div className="flex justify-center py-2"><Loader2 size={12} className="animate-spin text-epic-gold/40" /></div>
+                  ) : searchResults.length > 0 ? (
+                    <div className="space-y-1 pt-1 max-h-32 overflow-y-auto custom-scrollbar">
+                      {searchResults.map(r => (
+                        <button
+                          key={r.id}
+                          onClick={() => handleAsociarHermana(r.id)}
+                          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                        >
+                          <div className="flex items-center gap-2">
+                             <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center text-[8px]">{r.nombre[0]}</div>
+                             <div>
+                               <p className="text-[10px] font-bold text-white/80">{r.nombre} {r.apellido}</p>
+                               <p className="text-[9px] text-white/30">Padre: {r.padre.nombre}</p>
+                             </div>
+                          </div>
+                          <Link2 size={12} className="text-epic-gold" />
+                        </button>
+                      ))}
+                    </div>
+                  ) : queryHermanas.length > 2 && (
+                    <p className="text-[9px] text-white/30 text-center py-2">No se encontraron resultados</p>
+                  )}
+                </motion.div>
+              )}
+            </div>
+          </div>
+
+          {/* ── 7. Invitar a grupo de competencia ── */}
           <div className="pt-1">
             <div className="h-px dark:bg-white/[0.06] bg-gray-100 mb-5" />
             <div className="flex items-center justify-between gap-4">

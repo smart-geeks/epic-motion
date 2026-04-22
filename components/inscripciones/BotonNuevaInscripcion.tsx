@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Button from '@/components/ui/Button';
 import WizardInscripcion from '@/components/inscripciones/WizardInscripcion';
 import { useWizardInscripcion } from '@/stores/wizard-inscripcion.store';
@@ -32,48 +33,60 @@ export default function BotonNuevaInscripcion({ gruposIniciales, cuotaInicial, c
       </Button>
 
       {/* Modal del wizard */}
-      {abierto && (
-        <>
-          {/* Overlay */}
-          <div
-            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
-            onClick={cerrar}
-          />
-
-          {/* Panel deslizante */}
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-6 px-4">
-            <div className="relative w-full max-w-3xl bg-white dark:bg-[#141414] border border-gray-200 dark:border-white/8 shadow-2xl rounded-sm min-h-[calc(100vh-3rem)]">
+      <AnimatePresence>
+        {abierto && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto px-4 py-8">
+            {/* Overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={cerrar}
+              className="fixed inset-0 bg-black/60 backdrop-blur-md"
+            />
+  
+            {/* Panel Central */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative w-full max-w-4xl glass-card rounded-[2.5rem] overflow-hidden flex flex-col max-h-[90vh] shadow-2xl"
+            >
               {/* Header */}
-              <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-white dark:bg-[#141414] border-b border-gray-100 dark:border-white/8">
-                <div>
-                  <h2 className="font-montserrat font-bold text-sm tracking-[0.15em] uppercase text-epic-black dark:text-white">
-                    Nueva Inscripción
-                  </h2>
-                  <p className="font-inter text-xs dark:text-epic-silver text-gray-500 mt-0.5">
-                    Epic Motion High Performance Dance Studio
-                  </p>
+              <div className="flex items-center justify-between px-8 py-6 bg-white/[0.03] border-b border-white/5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="h-px w-6 bg-epic-gold/30" />
+                    <h2 className="font-montserrat font-bold text-[10px] tracking-[0.25em] uppercase text-white/40">
+                      Proceso Administrativo
+                    </h2>
+                  </div>
+                  <h1 className="font-montserrat font-extrabold text-2xl text-white tracking-tight">
+                    Nueva <span className="text-epic-gold">Inscripción</span>
+                  </h1>
                 </div>
                 <button
                   onClick={cerrar}
-                  className="p-1.5 text-gray-400 dark:text-white/30 hover:text-epic-black dark:hover:text-white transition-colors"
+                  className="w-10 h-10 rounded-2xl bg-white/[0.03] hover:bg-white/[0.08] flex items-center justify-center text-white/30 hover:text-white transition-all border border-white/5"
                   aria-label="Cerrar"
                 >
-                  <X size={18} />
+                  <X size={20} />
                 </button>
               </div>
-
-              {/* Contenido del wizard */}
-              <div className="px-6 py-6">
+  
+              {/* Contenido Scrollable */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
                 <WizardInscripcion 
                   gruposIniciales={gruposIniciales} 
                   cuotaInicial={cuotaInicial} 
                   cicloInicial={cicloInicial} 
                 />
               </div>
-            </div>
+            </motion.div>
           </div>
-        </>
-      )}
+        )}
+      </AnimatePresence>
     </>
   );
 }

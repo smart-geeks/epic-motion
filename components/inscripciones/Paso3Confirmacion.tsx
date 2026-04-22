@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Check, CheckCheck, Copy, MessageCircle, Printer, UserPlus } from 'lucide-react';
+import { CheckCheck, Copy, MessageCircle, Printer, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -52,28 +52,14 @@ export default function Paso3Confirmacion() {
       `${pdfUrl || 'Generando...'}\n\n` +
       `👉 *Importante*: Te recomendamos cambiar tu contraseña en el primer inicio de sesión.\n\n` +
       `Cualquier duda quedo a tus órdenes.`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+    const numero = tutor.celularMadre || tutor.celularPadre || '';
+    window.open(`https://wa.me/52${numero}?text=${encodeURIComponent(texto)}`, '_blank');
   };
 
   return (
-    <div className="max-w-lg mx-auto space-y-6">
-
-      {/* ── Checkmark animado ─────────────────────────────────────────── */}
-      <div className="text-center py-4">
-        <div className="w-16 h-16 rounded-full bg-epic-gold/15 border-2 border-epic-gold flex items-center justify-center mx-auto mb-4">
-          <Check size={32} className="text-epic-gold" strokeWidth={2.5} />
-        </div>
-        <h2 className="font-montserrat font-bold text-lg text-epic-black dark:text-white tracking-wide">
-          ¡Inscripción completada!
-        </h2>
-        <p className="font-inter text-sm text-gray-500 dark:text-epic-silver mt-1">
-          {alumna.nombre} {alumna.apellido} ha sido{' '}
-          {esReinscripcion ? 'reinscrita' : 'inscrita'} correctamente.
-        </p>
-      </div>
-
-      {/* ── Resumen ───────────────────────────────────────────────────── */}
-      <div className="rounded-sm border border-gray-200 dark:border-white/10 divide-y divide-gray-100 dark:divide-white/8">
+    <div className="space-y-6">
+      {/* ── Resumen de la inscripción ─────────────────────────────────── */}
+      <div className="rounded-sm border border-white/10 divide-y divide-white/10">
         <div className="px-5 py-3 flex items-center justify-between">
           <span className="font-inter text-sm text-gray-500 dark:text-epic-silver">Alumna</span>
           <span className="font-inter text-sm font-medium text-epic-black dark:text-white">

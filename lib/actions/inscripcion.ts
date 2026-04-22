@@ -53,6 +53,7 @@ const DatosPagoSchema = z.object({
 
 const InscripcionSchema = z.object({
   alumnaId: z.string().uuid().optional(), // presente solo en reinscripción
+  padreId: z.string().uuid().optional(),  // presente al ligar hermanas
   alumna: DatosAlumnaSchema,
   tutor: DatosTutorSchema,
   infoGeneral: DatosInfoGeneralSchema,
@@ -128,6 +129,7 @@ export async function inscribirAlumna(
 
   const input = parsed.data;
   const esReinscripcion = !!input.alumnaId;
+  const tienePadreExistente = !!input.padreId;
 
   // 3. Generar password temporal ANTES de la transacción (no en la BD)
   const passwordTemporal = esReinscripcion ? "" : generarPasswordTemporal();
@@ -245,6 +247,56 @@ export async function inscribirAlumna(
             domicilio: input.tutor.domicilio || null,
           },
         });
+      } else if (tienePadreExistente) {
+        // Ligar hermana: usar padre existente
+        const padreExistente = await tx.usuario.findUnique({
+          where: { id: input.padreId },
+        });
+        if (!padreExistente) throw new InscripcionError("Tutor vinculado no encontrado");
+
+        padreId = padreExistente.id;
+        emailPadre = padreExistente.email;
+
+        // Opcionalmente actualizar datos del tutor (si cambiaron)
+        const nombreMadre = input.tutor.nombreMadre;
+        const nombrePadre = input.tutor.nombrePadre;
+        const tutorPrincipal = nombreMadre || nombrePadre;
+        const partes = tutorPrincipal.split(" ");
+
+        await tx.usuario.update({
+          where: { id: padreId },
+          data: {
+            nombre: partes[0] || padreExistente.nombre,
+            apellido: partes.slice(1).join(" ") || padreExistente.apellido,
+            telefono: input.tutor.celularMadre || input.tutor.celularPadre || null,
+            telefonoTrabajo: input.tutor.telefonoTrabajoMadre || input.tutor.telefonoTrabajoPadre || null,
+            emailConyuge: nombreMadre ? input.tutor.emailPadre || null : input.tutor.emailMadre || null,
+            celularConyuge: nombreMadre ? input.tutor.celularPadre || null : input.tutor.celularMadre || null,
+            nombreConyuge: nombreMadre ? input.tutor.nombrePadre || null : input.tutor.nombreMadre || null,
+            domicilio: input.tutor.domicilio || null,
+          },
+        });
+
+        // Crear nueva alumna ligada al padre existente
+        const alumna = await tx.alumna.create({
+          data: {
+            nombre: input.alumna.nombre,
+            apellido: input.alumna.apellido,
+            fechaNacimiento: new Date(input.alumna.fechaNacimiento),
+            institucionEducativa: input.alumna.institucionEducativa || null,
+            otraAcademia: input.infoGeneral.otraAcademia
+              ? input.infoGeneral.nombreOtraAcademia || null
+              : null,
+            enfermedadLesion: input.infoGeneral.tieneEnfermedad
+              ? input.infoGeneral.descripcionEnfermedad || null
+              : null,
+            canalContacto: input.infoGeneral.canalContacto,
+            estatus: "ACTIVA",
+            padreId,
+          },
+        });
+
+        alumnaId = alumna.id;
       } else {
         // Nueva inscripción: crear padre + alumna
         const passwordHash = await bcrypt.hash(passwordTemporal, 10);

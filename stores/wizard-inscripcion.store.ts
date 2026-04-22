@@ -55,6 +55,7 @@ const estadoInicial: EstadoWizard = {
   paso: 1,
   esReinscripcion: false,
   alumnaIdExistente: null,
+  padreIdExistente: null,
   alumna: alumnaVacia,
   tutor: tutorVacio,
   infoGeneral: infoGeneralVacia,
@@ -90,6 +91,9 @@ interface AccionesWizard {
   ) => void;
   // Limpia el modo reinscripción y vuelve a formulario vacío
   cancelarReinscripcion: () => void;
+  // Para ligar hermana: pre-llena tutor pero mantiene alumna vacía
+  vincularPadreExistente: (padreId: string, datosTutor: DatosTutorWizard) => void;
+  desvincularPadre: () => void;
   // Reinicia el wizard completo
   resetWizard: () => void;
 }
@@ -144,7 +148,20 @@ export const useWizardInscripcion = create<EstadoWizard & AccionesWizard>()(
       set({
         esReinscripcion: false,
         alumnaIdExistente: null,
+        padreIdExistente: null,
         alumna: alumnaVacia,
+        tutor: tutorVacio,
+      }),
+
+    vincularPadreExistente: (padreId, datosTutor) =>
+      set({
+        padreIdExistente: padreId,
+        tutor: datosTutor,
+      }),
+
+    desvincularPadre: () =>
+      set({
+        padreIdExistente: null,
         tutor: tutorVacio,
       }),
 
