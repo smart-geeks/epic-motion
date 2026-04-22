@@ -1,27 +1,19 @@
-"use client";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getHomeResumen } from "@/lib/services/padre-service";
+import PadreHomeClient from "@/components/padre/PadreHomeClient";
 
-import { useSession } from "next-auth/react";
+export default async function PadreHomePage() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) redirect("/login");
 
-export default function PadreHomePage() {
-  const { data: session } = useSession();
-  const nombre = session?.user?.nombre?.split(" ")[0] ?? "Bienvenido";
+  const resumen = await getHomeResumen(session.user.id);
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-montserrat font-bold dark:text-white text-gray-900 tracking-[0.03em]">
-          Hola, {nombre}
-        </h1>
-        <p className="mt-1 text-sm font-inter dark:text-epic-silver text-gray-500">
-          Aquí encontrarás noticias, notas y el progreso de tus hijas.
-        </p>
-      </div>
-
-      <div className="dark:bg-epic-gray bg-white rounded-2xl border dark:border-white/5 border-gray-200 p-8 text-center shadow-sm">
-        <p className="text-sm font-inter dark:text-epic-silver text-gray-400 tracking-[0.02em]">
-          El contenido del home se implementará en la siguiente fase.
-        </p>
-      </div>
-    </div>
+    <PadreHomeClient
+      nombre={session.user.nombre ?? "Bienvenido"}
+      resumen={resumen}
+    />
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import {
   Users, CalendarCheck, CreditCard, UserCheck,
   TrendingUp, Activity, Zap, AlertCircle, Clock, CheckCircle2
@@ -292,9 +293,9 @@ export default function DashboardBento({ nombre, datosInscripcion, metrics }: Pr
           </div>
 
           <div className="pt-6 mt-6 border-t border-white/5">
-            <button className="w-full py-3 bg-white/[0.05] hover:bg-white/[0.1] text-white/70 text-xs font-bold rounded-2xl transition-all tracking-wider uppercase">
+            <Link href="/admin/reportes" className="w-full py-3 bg-white/[0.05] hover:bg-white/[0.1] text-white/70 text-xs font-bold rounded-2xl transition-all tracking-wider uppercase block text-center">
               Ver Reportes Full
-            </button>
+            </Link>
           </div>
         </motion.div>
       </motion.div>

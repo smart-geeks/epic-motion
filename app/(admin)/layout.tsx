@@ -37,7 +37,6 @@ const NAV_LINKS = [
   },
   { href: "/admin/noticias",       label: "Noticias",        icon: Newspaper },
   { href: "/admin/eventos",        label: "Eventos",         icon: Trophy },
-  { href: "/admin/reportes",       label: "Reportes",        icon: BarChart3 },
   { href: "/admin/configuracion",  label: "Configuración",   icon: Settings },
 ];
 
