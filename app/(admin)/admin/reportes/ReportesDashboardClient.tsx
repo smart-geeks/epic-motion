@@ -27,13 +27,13 @@ const COLORS = ['#FFB800', '#3B82F6', '#8B5CF6', '#10B981', '#EC4899', '#F43F5E'
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } }
-};
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 100, damping: 15 } as const }
+} as const;
 
 const containerVariants = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.1 } }
-};
+} as const;
 
 function formatCurrency(value: number) {
   if (value === undefined || value === null || isNaN(value)) return '$0';
@@ -98,7 +98,7 @@ export default function ReportesDashboardClient({
               <motion.div
                 layoutId="activeTabReportes"
                 className="absolute inset-0 bg-epic-gold rounded-xl shadow-[0_0_15px_rgba(255,184,0,0.3)]"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.6 } as const}
               />
             )}
             <span className="relative z-10">{tab}</span>
@@ -175,7 +175,7 @@ export default function ReportesDashboardClient({
                       <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                       <XAxis dataKey="mes" stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11, fontFamily: 'Inter' }} axisLine={false} tickLine={false} dy={10} />
                       <YAxis stroke="rgba(255,255,255,0.3)" tick={{ fill: 'rgba(255,255,255,0.4)', fontSize: 11, fontFamily: 'Inter' }} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val/1000}k`} />
-                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem', backdropFilter: 'blur(10px)' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px', fontWeight: 'bold' }} />
+                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.02)' }} contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem', backdropFilter: 'blur(10px)' }} formatter={(value: any) => formatCurrency(value as number)} labelStyle={{ color: 'rgba(255,255,255,0.5)', marginBottom: '4px', fontWeight: 'bold' }} />
                       <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                       <Bar dataKey="proyectado" name="Proyectado" fill="#FFB800" radius={[4, 4, 0, 0]} barSize={20} />
                       <Bar dataKey="ingreso" name="Ingreso Real" fill="#10B981" radius={[4, 4, 0, 0]} barSize={20} />
@@ -197,7 +197,7 @@ export default function ReportesDashboardClient({
                         <Pie data={pieDataFinanzas} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
                           {pieDataFinanzas.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                         </Pie>
-                        <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }} formatter={(value: number) => formatCurrency(value)} />
+                        <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }} formatter={(value: any) => formatCurrency(value as number)} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (

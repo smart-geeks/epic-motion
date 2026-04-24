@@ -1,4 +1,4 @@
-import { PrismaClient } from '@app/generated/prisma';
+import type { PrismaTransactionClient } from '@/lib/prisma-rls';
 
 /**
  * Retorna el inicio del día (00:00:00) para una fecha dada.
@@ -27,7 +27,7 @@ function formatTime(date: Date) {
   return `${hh}:${mm}`;
 }
 
-export async function getDashboardMetrics(tx: PrismaClient) {
+export async function getDashboardMetrics(tx: PrismaTransactionClient) {
   const hoy = new Date();
   
   // 1. Total Alumnas Activas

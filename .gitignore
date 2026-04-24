@@ -28,6 +28,7 @@ yarn-error.log*
 # local env files
 .env
 .env*.local
+!.env.example
 
 # vercel
 .vercel
@@ -37,3 +38,8 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# debug/test scripts (prevenir archivos sueltos)
+test-*.js
+test-*.ts
+query_*.js

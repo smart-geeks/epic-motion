@@ -9,22 +9,23 @@ import ConfiguracionShell from '@/components/configuracion/ConfiguracionShell';
 // Una sola transacción RLS con las cinco queries en paralelo interno
 async function fetchConfiguracionData(session: Session | null) {
   return await withRLS(session, async (tx) => {
-    const [gruposData, alumnasData, cursosData, disciplinasData, staffData] = await Promise.all([
+    const [gruposData, alumnasData, cursosData, disciplinasData, staffData, salonesData] = await Promise.all([
       svc.getGrupos(tx),
       svc.getAlumnas(tx),
       svc.getCursosEspeciales(tx),
       svc.getDisciplinas(tx),
-      svc.getStaff(tx), // Nueva función que obtendremos
+      svc.getStaff(tx),
+      svc.getSalones(tx),
     ]);
 
-    return { gruposData, alumnasData, cursosData, disciplinasData, staffData };
+    return { gruposData, alumnasData, cursosData, disciplinasData, staffData, salonesData };
   });
 }
 
 
 export default async function ConfiguracionPage() {
   const session = await getServerSession(authOptions);
-  const { gruposData, alumnasData, cursosData, disciplinasData, staffData } =
+  const { gruposData, alumnasData, cursosData, disciplinasData, staffData, salonesData } =
     await fetchConfiguracionData(session);
 
   return (
@@ -54,6 +55,7 @@ export default async function ConfiguracionPage() {
         cursosEspeciales={cursosData}
         disciplinas={disciplinasData}
         staff={staffData}
+        salones={salonesData}
       />
     </div>
   );

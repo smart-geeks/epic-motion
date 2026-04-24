@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import * as svc from "@/lib/services/teacher-service";
 import { redirect } from "next/navigation";
 import { Calendar, Users, GraduationCap, ChevronRight, Clock } from "lucide-react";

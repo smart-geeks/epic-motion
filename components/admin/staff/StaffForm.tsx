@@ -74,7 +74,7 @@ export function StaffForm({ isOpen, onClose, initialData }: StaffFormProps) {
   const removeEspecialidad = (esp: string) => {
     setFormData({
       ...formData,
-      especialidades: formData.especialidades.filter(e => e !== esp)
+      especialidades: formData.especialidades.filter((e: string) => e !== esp)
     });
   };
 
@@ -237,7 +237,7 @@ export function StaffForm({ isOpen, onClose, initialData }: StaffFormProps) {
                         </button>
                       </div>
                       <div className="flex flex-wrap gap-2 pt-1">
-                        {formData.especialidades.map((esp) => (
+                        {formData.especialidades.map((esp: string) => (
                           <span
                             key={esp}
                             className="inline-flex items-center gap-2 px-3 py-1.5 bg-epic-gold/10 border border-epic-gold/20 text-epic-gold rounded-full text-xs font-medium"

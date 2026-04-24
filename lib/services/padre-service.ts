@@ -37,6 +37,7 @@ export type CargoResumen = {
   fechaVencimiento: Date;
   estado: string;
   hija: string;
+  tipo: string;
 };
 
 export type NoticiaResumen = {
@@ -164,7 +165,7 @@ export async function getHijasByPadre(padreId: string): Promise<HijaResumen[]> {
 export async function getCargosByPadre(padreId: string): Promise<CargoResumen[]> {
   const cargos = await prisma.cargo.findMany({
     where: { padreId },
-    include: { alumna: true, concepto: true },
+    include: { alumna: true, concepto: { select: { nombre: true, tipo: true } } },
     orderBy: { fechaVencimiento: "asc" },
   });
 
@@ -175,6 +176,7 @@ export async function getCargosByPadre(padreId: string): Promise<CargoResumen[]>
     fechaVencimiento: c.fechaVencimiento,
     estado: c.estado,
     hija: `${c.alumna.nombre} ${c.alumna.apellido}`,
+    tipo: c.concepto.tipo,
   }));
 }
 
@@ -282,7 +284,7 @@ export async function getHomeResumen(padreId: string): Promise<HomeResumen> {
           { estado: "PENDIENTE", fechaVencimiento: { lte: en7Dias } },
         ],
       },
-      include: { alumna: true, concepto: true },
+      include: { alumna: true, concepto: { select: { nombre: true, tipo: true } } },
       orderBy: { fechaVencimiento: "asc" },
     }),
     getNoticiasByPadre(padreId),
@@ -301,6 +303,7 @@ export async function getHomeResumen(padreId: string): Promise<HomeResumen> {
       fechaVencimiento: c.fechaVencimiento,
       estado: c.estado,
       hija: `${c.alumna.nombre} ${c.alumna.apellido}`,
+      tipo: c.concepto.tipo,
     })),
     noticias,
     hijas,

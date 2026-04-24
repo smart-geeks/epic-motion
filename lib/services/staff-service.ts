@@ -37,6 +37,7 @@ export async function crearStaff(data: {
   telefono?: string;
   especialidades?: string[];
   tarifaHora?: number;
+  tarifaPrivada?: number;
 }) {
   return await prisma.$transaction(async (tx) => {
     const usuario = await tx.usuario.create({
@@ -56,6 +57,7 @@ export async function crearStaff(data: {
         data: {
           usuarioId: usuario.id,
           tarifaHora: data.tarifaHora || 0,
+          tarifaPrivada: data.tarifaPrivada,
           especialidades: data.especialidades || []
         }
       });
@@ -73,6 +75,7 @@ export async function actualizarStaff(id: string, data: {
   telefono?: string;
   especialidades?: string[];
   tarifaHora?: number;
+  tarifaPrivada?: number;
   activo?: boolean;
 }) {
   return await prisma.$transaction(async (tx) => {
@@ -94,10 +97,12 @@ export async function actualizarStaff(id: string, data: {
         create: {
           usuarioId: id,
           tarifaHora: data.tarifaHora || 0,
+          tarifaPrivada: data.tarifaPrivada,
           especialidades: data.especialidades || []
         },
         update: {
           tarifaHora: data.tarifaHora,
+          tarifaPrivada: data.tarifaPrivada,
           especialidades: data.especialidades
         }
       });

@@ -58,3 +58,9 @@ export async function getStaff(tx: PrismaTransactionClient): Promise<any[]> {
     }
   });
 }
+export async function getSalones(tx: PrismaTransactionClient): Promise<any[]> {
+  return tx.salon.findMany({
+    select: { id: true, nombre: true },
+    orderBy: { nombre: 'asc' },
+  });
+}

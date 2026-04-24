@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import type { Transition, Variants } from 'framer-motion';
 import { ArrowLeft, Check, ChevronDown, Copy, Loader2, Plus, X } from 'lucide-react';
 import { toast } from 'sonner';
-import type { GrupoConfigData, DisciplinaConfigData, ProfesorData } from '@/types/configuracion';
+import type { GrupoConfigData, DisciplinaConfigData, ProfesorData, SalonData } from '@/types/configuracion';
 import {
   crearGrupo,
   getTarifaPorTier,
@@ -30,6 +30,7 @@ interface Props {
   grupos: GrupoConfigData[];
   disciplinas: DisciplinaConfigData[];
   profesores: ProfesorData[];
+  salones: SalonData[];
   onClose: () => void;
   onCreado: () => void;
 }
@@ -158,7 +159,7 @@ function ProgressBar({ paso }: { paso: PasoId }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function GrupoWizard({ grupos, disciplinas, profesores, onClose, onCreado }: Props) {
+export default function GrupoWizard({ grupos, disciplinas, profesores, salones, onClose, onCreado }: Props) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   const [paso, setPaso] = useState<PasoId>(1);
@@ -183,6 +184,7 @@ export default function GrupoWizard({ grupos, disciplinas, profesores, onClose, 
   const [precioOrigen, setPrecioOrigen] = useState<'auto' | 'manual'>('auto');
   const [fetchingPrecio, setFetchingPrecio] = useState(false);
   const [profesorId, setProfesorId] = useState('');
+  const [salonId, setSalonId] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [activo, setActivo] = useState(true);
 
@@ -255,6 +257,7 @@ export default function GrupoWizard({ grupos, disciplinas, profesores, onClose, 
         setCupo(String(datos.cupo));
         setDescripcion(datos.descripcion ?? '');
         setProfesorId(datos.profesorId ?? '');
+        setSalonId(datos.salonId ?? '');
         setActivo(datos.activo);
         setRows(datos.disciplinas.map((d) => ({
           uid: uid(),
@@ -334,6 +337,7 @@ export default function GrupoWizard({ grupos, disciplinas, profesores, onClose, 
       precioMensualidad: Number(precio),
       activo,
       profesorId: profesorId || null,
+      salonId: salonId || null,
       descripcion: descFinal,
     });
 
@@ -703,21 +707,41 @@ export default function GrupoWizard({ grupos, disciplinas, profesores, onClose, 
             </button>
           </div>
 
-          <div>
-            <label className={labelCls}>Profesor asignado</label>
-            <div className="relative">
-              <select
-                value={profesorId}
-                onChange={(e) => setProfesorId(e.target.value)}
-                className={selectCls}
-                title="Profesor asignado"
-              >
-                <option value="">— Sin asignar —</option>
-                {profesores.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre} {p.apellido}</option>
-                ))}
-              </select>
-              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Salón asignado</label>
+              <div className="relative">
+                <select
+                  value={salonId}
+                  onChange={(e) => setSalonId(e.target.value)}
+                  className={selectCls}
+                  title="Salón asignado"
+                >
+                  <option value="">— Sin asignar —</option>
+                  {salones.map((s) => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Profesor asignado</label>
+              <div className="relative">
+                <select
+                  value={profesorId}
+                  onChange={(e) => setProfesorId(e.target.value)}
+                  className={selectCls}
+                  title="Profesor asignado"
+                >
+                  <option value="">— Sin asignar —</option>
+                  {profesores.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre} {p.apellido}</option>
+                  ))}
+                </select>
+                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -757,6 +781,7 @@ export default function GrupoWizard({ grupos, disciplinas, profesores, onClose, 
       { label: 'Tier',           val: tier },
       { label: 'Disciplinas',    val: rows.length > 0 ? `${rows.length} — ${discNames}` : '—' },
       { label: 'Precio mensual', val: !isNaN(precioNum) && precioNum > 0 ? fmtMXN(precioNum) : '—', accent: true },
+      { label: 'Salón',          val: salones.find((s) => s.id === salonId)?.nombre || 'Sin asignar' },
       { label: 'Profesor',       val: prof ? `${prof.nombre} ${prof.apellido}` : 'Sin asignar' },
       { label: 'Estado',         val: activo ? 'Activo' : 'Inactivo' },
     ];

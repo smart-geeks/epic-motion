@@ -3,7 +3,7 @@
 import { forwardRef } from 'react';
 
 type Variante = 'primary' | 'secondary' | 'ghost' | 'danger';
-type Tamano = 'sm' | 'md' | 'lg';
+type Tamano = 'xs' | 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: Variante;
@@ -47,6 +47,7 @@ const VARIANTES: Record<Variante, string> = {
 };
 
 const TAMANOS: Record<Tamano, string> = {
+  xs: 'px-2 py-1 text-[10px] rounded-md',
   sm: 'px-3 py-1.5 text-xs rounded-lg',
   md: 'px-5 py-2.5 text-sm rounded-xl',
   lg: 'px-7 py-3.5 text-sm rounded-xl',

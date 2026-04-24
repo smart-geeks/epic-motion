@@ -373,11 +373,24 @@ export async function inscribirAlumna(
       }
 
       // ── E. Vincular alumna al grupo (AlumnaClase) ──────────────────────────
+      // Lógica: Se permite tener 1 grupo regular Y 1 grupo de competencia (elite).
+      const esGrupoCompetencia = grupo.categoria === 'COMPETICION';
+
+      // 1. Eliminamos cualquier asignación previa de la misma naturaleza para evitar duplicados
+      await tx.alumnaClase.deleteMany({
+        where: { 
+          alumnaId,
+          grupo: {
+            categoria: esGrupoCompetencia ? 'COMPETICION' : { not: 'COMPETICION' }
+          }
+        },
+      });
+
+      // 2. Creamos la nueva asignación
       await tx.alumnaClase.create({
         data: {
           alumnaId,
           grupoId: input.grupoId,
-          // claseId queda null hasta que el grupo tenga Clase operativa asignada
         },
       });
 

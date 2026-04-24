@@ -3,7 +3,7 @@
 import { useOptimistic, useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Pencil, Plus, Sun, Users } from 'lucide-react';
+import { Pencil, Plus, Sun, Users, ChevronRight } from 'lucide-react';
 import AlumnaDetailModal from '@/components/configuracion/modals/AlumnaDetailModal';
 import GrupoSelect from '@/components/ui/GrupoSelect';
 import type { GrupoConfigData, AlumnaConfigData, CursoEspecialData, DisciplinaConfigData, ProfesorData, ReasignacionResult } from '@/types/configuracion';
@@ -24,6 +24,7 @@ interface Props {
   cursosEspeciales: CursoEspecialData[];
   disciplinas: DisciplinaConfigData[];
   profesores: ProfesorData[];
+  salones: { id: string; nombre: string }[];
 }
 
 type Vista = 'grupos' | 'alumnas';
@@ -34,7 +35,7 @@ interface ConfirmReasignacion {
   mensaje: string;
 }
 
-export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, disciplinas, profesores }: Props) {
+export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, disciplinas, profesores, salones }: Props) {
   const router = useRouter();
   const [vista, setVista] = useState<Vista>('grupos');
 
@@ -449,6 +450,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
           grupo={grupoEditando}
           todosGrupos={grupos}
           profesores={profesores}
+          salones={salones}
           onClose={() => setGrupoEditandoId(null)}
           onSaved={() => { setGrupoEditandoId(null); router.refresh(); }}
         />
@@ -470,6 +472,7 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
           grupos={grupos}
           disciplinas={disciplinas}
           profesores={profesores}
+          salones={salones}
           onClose={() => setNuevoGrupoOpen(false)}
           onCreado={() => { setNuevoGrupoOpen(false); router.refresh(); }}
         />

@@ -12,6 +12,7 @@ export async function getAlumnas(tx: PrismaTransactionClient): Promise<AlumnaCon
     select: {
       id: true, nombre: true, apellido: true, foto: true,
       fechaNacimiento: true, estatus: true, invitadaCompetencia: true,
+      padreId: true,
       padre: { select: { nombre: true, apellido: true, telefono: true, email: true } },
       clases: {
         where: { grupoId: { not: null } },
@@ -132,10 +133,26 @@ export async function reasignarAlumna(
     }
   }
 
-  await tx.alumnaClase.updateMany({
-    where: { alumnaId },
-    data: { grupoId: grupoDestinoId },
+  const esGrupoCompetencia = grupoDestino.categoria === 'COMPETICION';
+
+  // 1. Eliminamos cualquier asignación previa de la misma naturaleza para evitar duplicados
+  await tx.alumnaClase.deleteMany({
+    where: { 
+      alumnaId,
+      grupo: {
+        categoria: esGrupoCompetencia ? 'COMPETICION' : { not: 'COMPETICION' }
+      }
+    },
   });
+
+  // 2. Creamos la nueva asignación
+  await tx.alumnaClase.create({
+    data: {
+      alumnaId,
+      grupoId: grupoDestinoId,
+    },
+  });
+
   return { ok: true };
 }
 

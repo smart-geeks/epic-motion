@@ -9,6 +9,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { withRLS } from '@/lib/prisma-rls';
 import * as svc from '@/lib/services/configuracion-service';
+import { buildHoraTexto } from '@/lib/services/common-service';
 import type {
   ReasignacionResult,
   ResumenGrupoCreado,
@@ -33,6 +34,7 @@ const GrupoBaseSchema = z
     edadMax: z.number().int().min(1).max(100),
     activo: z.boolean(),
     profesorId: z.string().nullable().optional(),
+    salonId: z.string().nullable().optional(),
     descripcion: z.string().max(500).nullable().optional(),
   })
   .refine((d) => d.edadMin < d.edadMax, {
@@ -92,6 +94,18 @@ export async function getProfesoresActivos() {
   }
 }
 
+// ─── 0b. Listar salones ─────────────────────────────────────────────────────
+
+export async function getSalones() {
+  const session = await getServerSession(authOptions);
+  try {
+    return await withRLS(session, (tx) => svc.getSalones(tx));
+  } catch (err) {
+    console.error('[getSalones]', err);
+    return [];
+  }
+}
+
 // ─── 1. Actualizar configuración de un grupo ───────────────────────────────
 
 export async function updateGrupoConfig(
@@ -106,6 +120,7 @@ export async function updateGrupoConfig(
       ...parsed.data,
       descripcion: parsed.data.descripcion ?? null,
       profesorId: parsed.data.profesorId ?? null,
+      salonId: parsed.data.salonId ?? null,
     }));
     revalidatePath('/admin/configuracion');
     return { ok: true };
@@ -366,5 +381,56 @@ export async function actualizarPadre(
   } catch (err) {
     console.error('[actualizarPadre]', err);
     return { ok: false, error: 'No se pudo actualizar los datos del tutor.' };
+  }
+}
+
+// ─── 15. Actualizar horario de una disciplina (Drag & Drop) ────────────────
+
+export async function actualizarHorarioClase(
+  grupoId: string,
+  disciplinaId: string,
+  nuevosDias: string[],
+  nuevaHoraInicio: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const v = z.object({
+    grupoId: zUUID,
+    disciplinaId: zUUID,
+    nuevosDias: z.array(z.enum(DIAS_VALIDOS)),
+    nuevaHoraInicio: z.string().regex(/^\d{2}:\d{2}$/),
+  }).safeParse({ grupoId, disciplinaId, nuevosDias, nuevaHoraInicio });
+
+  if (!v.success) return { ok: false, error: 'Datos de horario inválidos.' };
+
+  const session = await getServerSession(authOptions);
+  try {
+    await withRLS(session, async (tx) => {
+      // 1. Actualizar la tabla pivot GrupoDisciplina
+      await tx.grupoDisciplina.update({
+        where: { grupoId_disciplinaId: { grupoId, disciplinaId } },
+        data: {
+          dias: nuevosDias,
+          horaInicio: nuevaHoraInicio,
+          // Actualizar también el texto amigable para el ticket
+          // Necesitamos la duración, la buscamos primero
+          ...(await tx.grupoDisciplina.findUnique({
+            where: { grupoId_disciplinaId: { grupoId, disciplinaId } },
+            select: { duracionMinutos: true }
+          }).then(d => d ? {
+            horaTexto: buildHoraTexto(nuevosDias, nuevaHoraInicio, d.duracionMinutos)
+          } : {}))
+        }
+      });
+
+      // 2. Si es la "clase principal" del grupo (opcional, para mantener consistencia), 
+      // podríamos actualizar el grupo mismo si solo tiene una disciplina.
+      // Por ahora, el Mapa de Ocupación lee de GrupoDisciplina, así que esto es lo principal.
+    });
+
+    revalidatePath('/admin/grupos');
+    revalidatePath('/admin/configuracion');
+    return { ok: true };
+  } catch (err) {
+    console.error('[actualizarHorarioClase]', err);
+    return { ok: false, error: 'No se pudo actualizar el horario.' };
   }
 }

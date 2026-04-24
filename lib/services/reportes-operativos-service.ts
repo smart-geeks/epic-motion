@@ -1,4 +1,4 @@
-import { Prisma } from '@/app/generated/prisma';
+import type { PrismaTransactionClient } from '@/lib/prisma-rls';
 
 export interface MetricasOperativas {
   alumnas: {
@@ -14,7 +14,7 @@ export interface MetricasOperativas {
   };
 }
 
-export async function getReportesOperativos(tx: Prisma.TransactionClient, mesConsulta?: Date): Promise<MetricasOperativas> {
+export async function getReportesOperativos(tx: PrismaTransactionClient, mesConsulta?: Date): Promise<MetricasOperativas> {
   const fecha = mesConsulta || new Date();
   const inicioMes = new Date(fecha.getFullYear(), fecha.getMonth(), 1);
   const finMes = new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0, 23, 59, 59, 999);

@@ -33,9 +33,10 @@ interface Props {
   cursosEspeciales: CursoEspecialData[];
   disciplinas: DisciplinaConfigData[];
   staff: any[];
+  salones: { id: string; nombre: string }[];
 }
 
-export default function ConfiguracionShell({ grupos, alumnas, cursosEspeciales, disciplinas, staff }: Props) {
+export default function ConfiguracionShell({ grupos, alumnas, cursosEspeciales, disciplinas, staff, salones }: Props) {
   const [activeTab, setActiveTab] = useState<TabId>('grupos');
 
   return (
@@ -86,6 +87,7 @@ export default function ConfiguracionShell({ grupos, alumnas, cursosEspeciales, 
               cursosEspeciales={cursosEspeciales}
               disciplinas={disciplinas}
               profesores={staff.filter(s => s.rol === 'MAESTRO')}
+              salones={salones}
             />
           )}
           {activeTab === 'maestros'    && <TabMaestros staff={staff} />}

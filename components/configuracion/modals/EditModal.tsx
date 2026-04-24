@@ -11,11 +11,12 @@ export interface EditModalProps {
   grupo: GrupoConfigData;
   todosGrupos: GrupoConfigData[];
   profesores: ProfesorData[];
+  salones: { id: string; nombre: string }[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function EditModal({ grupo, todosGrupos, profesores, onClose, onSaved }: EditModalProps) {
+export default function EditModal({ grupo, todosGrupos, profesores, salones, onClose, onSaved }: EditModalProps) {
   const [form, setForm] = useState({
     nombre: grupo.nombre,
     cupo: grupo.cupo,
@@ -26,6 +27,7 @@ export default function EditModal({ grupo, todosGrupos, profesores, onClose, onS
     activo: grupo.activo,
     descripcion: grupo.descripcion ?? '',
     profesorId: grupo.profesorId ?? '',
+    salonId: grupo.salonId ?? '',
   });
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +51,7 @@ export default function EditModal({ grupo, todosGrupos, profesores, onClose, onS
       activo: form.activo,
       descripcion: form.descripcion.trim() || null,
       profesorId: form.profesorId || null,
+      salonId: form.salonId || null,
     });
     setGuardando(false);
     if (!res.ok) {
@@ -176,24 +179,48 @@ export default function EditModal({ grupo, todosGrupos, profesores, onClose, onS
           </div>
 
           {/* Profesor asignado */}
-          <div>
-            <label htmlFor="edit-profesor" className="block font-inter text-xs font-medium dark:text-epic-silver text-gray-600 mb-1.5 tracking-wide uppercase">
-              Profesor asignado
-            </label>
-            <div className="relative">
-              <select
-                id="edit-profesor"
-                title="Profesor asignado al grupo"
-                value={form.profesorId}
-                onChange={(e) => setForm((p) => ({ ...p, profesorId: e.target.value }))}
-                className="w-full appearance-none px-3 py-2.5 pr-8 rounded-lg text-sm font-inter dark:bg-white/5 bg-gray-50 dark:text-white text-gray-900 border dark:border-white/10 border-gray-200 focus:outline-none focus:border-epic-gold/50 transition-colors"
-              >
-                <option value="">— Sin asignar —</option>
-                {profesores.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre} {p.apellido}</option>
-                ))}
-              </select>
-              <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="edit-profesor" className="block font-inter text-xs font-medium dark:text-epic-silver text-gray-600 mb-1.5 tracking-wide uppercase">
+                Profesor asignado
+              </label>
+              <div className="relative">
+                <select
+                  id="edit-profesor"
+                  title="Profesor asignado al grupo"
+                  value={form.profesorId}
+                  onChange={(e) => setForm((p) => ({ ...p, profesorId: e.target.value }))}
+                  className="w-full appearance-none px-3 py-2.5 pr-8 rounded-lg text-sm font-inter dark:bg-white/5 bg-gray-50 dark:text-white text-gray-900 border dark:border-white/10 border-gray-200 focus:outline-none focus:border-epic-gold/50 transition-colors"
+                >
+                  <option value="">— Sin asignar —</option>
+                  {profesores.map((p) => (
+                    <option key={p.id} value={p.id}>{p.nombre} {p.apellido}</option>
+                  ))}
+                </select>
+                <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Salón asignado */}
+            <div>
+              <label htmlFor="edit-salon" className="block font-inter text-xs font-medium dark:text-epic-silver text-gray-600 mb-1.5 tracking-wide uppercase">
+                Salón asignado
+              </label>
+              <div className="relative">
+                <select
+                  id="edit-salon"
+                  title="Salón asignado al grupo"
+                  value={form.salonId ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, salonId: e.target.value }))}
+                  className="w-full appearance-none px-3 py-2.5 pr-8 rounded-lg text-sm font-inter dark:bg-white/5 bg-gray-50 dark:text-white text-gray-900 border dark:border-white/10 border-gray-200 focus:outline-none focus:border-epic-gold/50 transition-colors"
+                >
+                  <option value="">— Sin asignar —</option>
+                  {salones.map((s) => (
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
+                </select>
+                <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 dark:text-white/30 text-gray-400 pointer-events-none" />
+              </div>
             </div>
           </div>
 

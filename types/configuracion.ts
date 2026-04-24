@@ -19,6 +19,8 @@ export interface GrupoConfigData {
   grupoSiguienteNombre: string | null;
   profesorId: string | null;
   profesorNombre: string | null;
+  salonId: string | null;
+  salonNombre: string | null;
   disciplinas: { id: string; nombre: string; color: string | null; horaTexto: string }[];
   tarifa: { precioMensualidad: number } | null;
 }
@@ -106,6 +108,7 @@ export interface UpdateGrupoInput {
   activo: boolean;
   descripcion: string | null;
   profesorId: string | null;
+  salonId: string | null;
 }
 
 export interface DisciplinaRowInput {
@@ -125,6 +128,7 @@ export interface CrearGrupoInput {
   precioMensualidad: number;
   activo: boolean;
   profesorId?: string | null;
+  salonId?: string | null;
   descripcion?: string | null;
 }
 
@@ -138,6 +142,7 @@ export interface DatosClonacion {
   activo: boolean;
   descripcion: string | null;
   profesorId: string | null;
+  salonId: string | null;
   precioMensualidad: number | null;
   disciplinas: {
     disciplinaId: string;
@@ -163,3 +168,4 @@ export interface UpdateCursoEspecialInput {
   duracionMinutos: number;
   profesorId: string | null;
 }
+export interface SalonData { id: string; nombre: string; }

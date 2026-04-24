@@ -30,9 +30,8 @@ const NAV_LINKS = [
     label: "Finanzas", 
     icon: Wallet,
     children: [
-      { href: "/admin/cobranza",       label: "Cobranza",        icon: CreditCard },
-      { href: "/admin/nomina",         label: "Nómina",          icon: Banknote },
       { href: "/admin/punto-de-venta", label: "Punto de Venta",  icon: ShoppingCart },
+      { href: "/admin/nomina",         label: "Nómina",          icon: Banknote },
     ]
   },
   { href: "/admin/noticias",       label: "Noticias",        icon: Newspaper },

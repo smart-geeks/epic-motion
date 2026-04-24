@@ -24,6 +24,7 @@ export async function getGrupos(tx: PrismaTransactionClient): Promise<GrupoConfi
       tarifa: { select: { precioMensualidad: true } },
       grupoSiguiente: { select: { nombre: true } },
       profesor: { select: { nombre: true, apellido: true } },
+      salon: { select: { id: true, nombre: true } },
       _count: { select: { disciplinas: true } },
     },
     orderBy: [{ categoria: 'asc' }, { nombre: 'asc' }],
@@ -44,6 +45,8 @@ export async function getGrupos(tx: PrismaTransactionClient): Promise<GrupoConfi
     grupoSiguienteNombre: g.grupoSiguiente?.nombre ?? null,
     profesorId: g.profesorId,
     profesorNombre: g.profesor ? `${g.profesor.nombre} ${g.profesor.apellido}` : null,
+    salonId: g.salonId,
+    salonNombre: g.salon?.nombre ?? null,
     disciplinas: g.disciplinasGrupo.map((gd) => ({
       id: gd.disciplina.id,
       nombre: gd.disciplina.nombre,
@@ -67,6 +70,7 @@ export async function updateGrupo(tx: PrismaTransactionClient, data: UpdateGrupo
       activo: data.activo,
       descripcion: data.descripcion,
       profesorId: data.profesorId,
+      salonId: data.salonId,
     },
   });
 }
@@ -99,6 +103,7 @@ export async function crearGrupo(
       activo: input.activo,
       descripcion: input.descripcion ?? null,
       profesorId: input.profesorId ?? null,
+      salonId: input.salonId ?? null,
     },
   });
 
@@ -250,6 +255,7 @@ export async function obtenerDatosDeClonacion(
     activo: grupo.activo,
     descripcion: grupo.descripcion,
     profesorId: grupo.profesorId,
+    salonId: grupo.salonId,
     precioMensualidad: grupo.tarifa?.precioMensualidad.toNumber() ?? null,
     disciplinas: grupo.disciplinasGrupo.map((gd) => ({
       disciplinaId: gd.disciplinaId,

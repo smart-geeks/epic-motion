@@ -13,6 +13,7 @@ const StaffSchema = z.object({
   rol: z.nativeEnum(Rol),
   telefono: z.string().optional(),
   tarifaHora: z.coerce.number().min(0).optional(),
+  tarifaPrivada: z.coerce.number().min(0).optional(),
   especialidades: z.array(z.string()).optional(),
   activo: z.boolean().default(true),
 });

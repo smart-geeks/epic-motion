@@ -420,6 +420,7 @@ model Pago {
 model Profesor {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tarifaHora     Decimal  @db.Decimal(10, 2)
+  tarifaPrivada  Decimal? @db.Decimal(10, 2)
   especialidades String[]
 
   usuarioId String  @unique @db.Uuid

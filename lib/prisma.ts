@@ -1,4 +1,4 @@
-import { PrismaClient } from "../app/generated/prisma/client";
+import { PrismaClient } from "@/app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 // Patrón singleton para Next.js: evita crear una conexión nueva por cada

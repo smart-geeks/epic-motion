@@ -1,4 +1,4 @@
-import { Prisma } from '@/app/generated/prisma';
+import type { PrismaTransactionClient } from '@/lib/prisma-rls';
 
 export interface MetricasFinancieras {
   ingresosProyectados: number;
@@ -16,7 +16,7 @@ export interface MetricasFinancieras {
   }[];
 }
 
-export async function getReportesFinancieros(tx: Prisma.TransactionClient, mesConsulta?: Date): Promise<MetricasFinancieras> {
+export async function getReportesFinancieros(tx: PrismaTransactionClient, mesConsulta?: Date): Promise<MetricasFinancieras> {
   const fecha = mesConsulta || new Date();
   
   // Rango del mes actual
