@@ -60,18 +60,25 @@ export default function GruposClient({ initialData }: Props) {
 
   const filteredGrupos = useMemo(() => {
     const grupos = initialData?.grupos || [];
-    if (selectedSalonId === 'all') return grupos;
-    return grupos.filter(g => g.salonId === selectedSalonId);
+    // Decouple competitive/special groups from the main grid
+    let filtrados = grupos.filter(g => g.categoria !== 'COMPETICION' && g.categoria !== 'Eventos');
+    
+    if (selectedSalonId === 'all') return filtrados;
+    return filtrados.filter(g => g.salonId === selectedSalonId);
   }, [selectedSalonId, initialData]);
 
-  const classBlocks = useMemo(() => {
-    const blocks: any[] = [];
+  const consolidatedBlocks = useMemo(() => {
+    const rawBlocks: any[] = [];
     filteredGrupos.forEach(grupo => {
       if (grupo?.disciplinas) {
         grupo.disciplinas.forEach(disc => {
           if (disc?.dias && Array.isArray(disc.dias)) {
             disc.dias.forEach(dia => {
-              blocks.push({
+              const parts = (disc.horaInicio || '00:00').split(':');
+              const start = (Number(parts[0]) || 0) * 60 + (Number(parts[1]) || 0);
+              const end = start + (disc.duracionMinutos || 60);
+
+              rawBlocks.push({
                 ...disc,
                 dia,
                 grupoNombre: grupo.nombre,
@@ -80,14 +87,87 @@ export default function GruposClient({ initialData }: Props) {
                 cupo: grupo.cupo || 1,
                 inscritos: grupo.inscritos || 0,
                 grupoId: grupo.id,
-                salonId: grupo.salonId
+                salonId: grupo.salonId,
+                start,
+                end,
+                originalId: disc.id,
+                disciplinaNombre: disc.nombre
               });
             });
           }
         });
       }
     });
-    return blocks;
+
+    const grouped = rawBlocks.reduce((acc: any, block: any) => {
+      const key = `${block.grupoId}-${block.dia}`;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(block);
+      return acc;
+    }, {});
+
+    const mergedBlocks: any[] = [];
+
+    Object.values(grouped).forEach((groupBlocks: any) => {
+      groupBlocks.sort((a: any, b: any) => a.start - b.start);
+
+      let currentSuperBlock: any = null;
+
+      groupBlocks.forEach((block: any) => {
+        if (!currentSuperBlock) {
+          currentSuperBlock = {
+            id: `super-${block.grupoId}-${block.dia}-${block.start}`,
+            grupoId: block.grupoId,
+            dia: block.dia,
+            grupoNombre: block.grupoNombre,
+            grupoCategoria: block.grupoCategoria,
+            profesor: block.profesor,
+            cupo: block.cupo,
+            inscritos: block.inscritos,
+            salonId: block.salonId,
+            color: block.color,
+            start: block.start,
+            end: block.end,
+            subBlocks: [block]
+          };
+        } else {
+          if (block.start <= currentSuperBlock.end) {
+            currentSuperBlock.end = Math.max(currentSuperBlock.end, block.end);
+            currentSuperBlock.subBlocks.push(block);
+          } else {
+            mergedBlocks.push(currentSuperBlock);
+            currentSuperBlock = {
+              id: `super-${block.grupoId}-${block.dia}-${block.start}`,
+              grupoId: block.grupoId,
+              dia: block.dia,
+              grupoNombre: block.grupoNombre,
+              grupoCategoria: block.grupoCategoria,
+              profesor: block.profesor,
+              cupo: block.cupo,
+              inscritos: block.inscritos,
+              salonId: block.salonId,
+              color: block.color,
+              start: block.start,
+              end: block.end,
+              subBlocks: [block]
+            };
+          }
+        }
+      });
+      if (currentSuperBlock) {
+        mergedBlocks.push(currentSuperBlock);
+      }
+    });
+
+    return mergedBlocks.map(sb => {
+      const h = Math.floor(sb.start / 60);
+      const m = sb.start % 60;
+      return {
+        ...sb,
+        horaInicio: `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`,
+        duracionMinutos: sb.end - sb.start,
+      };
+    });
   }, [filteredGrupos]);
 
   const getPositionStyles = (horaInicio: string, duracionMinutos: number) => {
@@ -124,41 +204,49 @@ export default function GruposClient({ initialData }: Props) {
     const blockData = e.dataTransfer.getData('block');
     if (!blockData) return;
     
-    const block = JSON.parse(blockData);
+    const superBlock = JSON.parse(blockData);
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     
-    // Calcular nueva hora
     const hourOffset = y / 80;
     const newTotalMinutes = Math.floor((13 + hourOffset) * 60);
-    // Snap a 15 min
     const snappedMinutes = Math.round(newTotalMinutes / 15) * 15;
-    const newH = Math.floor(snappedMinutes / 60);
-    const newM = snappedMinutes % 60;
-    const nuevaHoraInicio = `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
 
-    // Calcular nuevos dias
-    const originalDia = block.dia;
-    let nuevosDias = [...block.dias];
-    if (originalDia !== targetDia) {
-      if (nuevosDias.includes(targetDia)) {
-        toast.error('La clase ya existe en este día.');
-        return;
-      }
-      nuevosDias = nuevosDias.map(d => d === originalDia ? targetDia : d);
-    }
+    const timeDelta = snappedMinutes - superBlock.start;
+    const originalDia = superBlock.dia;
 
-    if (block.horaInicio === nuevaHoraInicio && originalDia === targetDia) {
+    if (timeDelta === 0 && originalDia === targetDia) {
       return; // No hubo cambio
     }
 
     const toastId = toast.loading('Actualizando horario...');
     try {
-      const res = await actualizarHorarioClase(block.grupoId, block.id, nuevosDias, nuevaHoraInicio);
-      if (res.ok) {
+      const promises = superBlock.subBlocks.map((sub: any) => {
+        let nuevosDias = [...sub.dias];
+        if (originalDia !== targetDia) {
+          if (nuevosDias.includes(targetDia)) {
+            nuevosDias = nuevosDias.filter((d: string) => d !== originalDia);
+            if (!nuevosDias.includes(targetDia)) nuevosDias.push(targetDia);
+          } else {
+            nuevosDias = nuevosDias.map((d: string) => d === originalDia ? targetDia : d);
+          }
+        }
+
+        const newStart = sub.start + timeDelta;
+        const newH = Math.floor(newStart / 60);
+        const newM = newStart % 60;
+        const nuevaHoraInicio = `${newH.toString().padStart(2, '0')}:${newM.toString().padStart(2, '0')}`;
+
+        return actualizarHorarioClase(superBlock.grupoId, sub.originalId, nuevosDias, nuevaHoraInicio);
+      });
+
+      const results = await Promise.all(promises);
+      const allOk = results.every(res => res.ok);
+      
+      if (allOk) {
         toast.success('Horario actualizado con éxito', { id: toastId });
       } else {
-        toast.error(res.error || 'No se pudo actualizar el horario', { id: toastId });
+        toast.error('Hubo un problema al actualizar algunas clases', { id: toastId });
       }
     } catch (error) {
       toast.error('Error al actualizar', { id: toastId });
@@ -183,25 +271,98 @@ export default function GruposClient({ initialData }: Props) {
     }
   };
 
+  const getDayBlocksWithLayout = (dayBlocks: any[]) => {
+    const blocksWithTimes = [...dayBlocks].sort((a, b) => a.start - b.start);
+
+    const clusters: any[][] = [];
+    let currentCluster: any[] = [];
+    let currentClusterEnd = 0;
+
+    blocksWithTimes.forEach(b => {
+      if (currentCluster.length === 0) {
+        currentCluster.push(b);
+        currentClusterEnd = b.end;
+      } else if (b.start < currentClusterEnd) {
+        currentCluster.push(b);
+        currentClusterEnd = Math.max(currentClusterEnd, b.end);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [b];
+        currentClusterEnd = b.end;
+      }
+    });
+    if (currentCluster.length > 0) {
+      clusters.push(currentCluster);
+    }
+
+    const layoutedBlocks: any[] = [];
+
+    clusters.forEach(cluster => {
+      const columns: any[][] = [];
+      cluster.forEach(b => {
+        let placed = false;
+        for (let i = 0; i < columns.length; i++) {
+          const col = columns[i];
+          const lastInCol = col[col.length - 1];
+          if (lastInCol.end <= b.start) {
+            col.push(b);
+            b.colIdx = i;
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          b.colIdx = columns.length;
+          columns.push([b]);
+        }
+      });
+
+      const numCols = columns.length;
+      cluster.forEach(b => {
+        layoutedBlocks.push({
+          ...b,
+          colIdx: b.colIdx,
+          numCols: numCols
+        });
+      });
+    });
+
+    return layoutedBlocks;
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 glass-card rounded-2xl border border-white/10">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
+          <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-epic-gold" />
-            <span className="text-xs font-medium text-white/60">Salón:</span>
-            <select 
-              value={selectedSalonId}
-              onChange={(e) => setSelectedSalonId(e.target.value)}
-              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
-            >
-              <option value="all" className="bg-[#0a0a0b]">Todos los salones</option>
+            <div className="flex bg-white/5 rounded-lg border border-white/10 p-1">
+              <button
+                onClick={() => setSelectedSalonId('all')}
+                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                  selectedSalonId === 'all' 
+                    ? 'bg-epic-gold text-[#0a0a0b] shadow-md' 
+                    : 'text-white/60 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Todos
+              </button>
               {(initialData?.salones || []).map(s => (
-                <option key={s.id} value={s.id} className="bg-[#0a0a0b]">{s.nombre}</option>
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedSalonId(s.id)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    selectedSalonId === s.id 
+                      ? 'bg-epic-gold text-[#0a0a0b] shadow-md' 
+                      : 'text-white/60 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  {s.nombre}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
         </div>
 
@@ -268,19 +429,27 @@ export default function GruposClient({ initialData }: Props) {
 
                 {/* Class Blocks for this day */}
                 <div className="absolute inset-0 pointer-events-none">
-                  {classBlocks.filter(b => b.dia === dia.key).map((block, bIdx) => {
+                  {getDayBlocksWithLayout(consolidatedBlocks.filter(b => b.dia === dia.key)).map((block, bIdx) => {
                     const styles = getPositionStyles(block.horaInicio, block.duracionMinutos);
                     const occupancyRatio = block.inscritos / block.cupo;
                     const statusColor = occupancyRatio >= 1 ? 'rose' : occupancyRatio >= 0.8 ? 'amber' : 'emerald';
                     
+                    const leftPct = (block.colIdx / block.numCols) * 100;
+                    const widthPct = 100 / block.numCols;
+                    const computedStyles = {
+                      ...styles,
+                      left: `calc(${leftPct}% + 4px)`,
+                      width: `calc(${widthPct}% - 8px)`,
+                    };
+
                     return (
                       <div
                         key={`${block.grupoId}-${block.id}-${dayIdx}-${bIdx}`}
                         draggable
                         onDragStart={(e) => handleDragStart(e, block)}
                         onDragEnd={handleDragEnd}
-                        className="absolute left-1 right-1 pointer-events-auto group cursor-grab active:cursor-grabbing hover:z-20 transition-transform hover:scale-[1.02]"
-                        style={{ ...styles }}
+                        className="absolute pointer-events-auto group cursor-grab active:cursor-grabbing hover:z-20 transition-transform hover:scale-[1.02]"
+                        style={computedStyles}
                         onMouseEnter={() => setHoveredClass(block)}
                         onMouseLeave={() => setHoveredClass(null)}
                         onClick={() => openAttendance(block)}
@@ -308,9 +477,23 @@ export default function GruposClient({ initialData }: Props) {
                             <div className={`w-1.5 h-1.5 rounded-full bg-${statusColor}-500 shadow-[0_0_8px_${statusColor === 'emerald' ? '#10b981' : statusColor === 'amber' ? '#f59e0b' : '#f43f5e'}]`} />
                           </div>
 
-                          <span className="text-[11px] font-black text-white leading-none truncate group-hover:text-epic-gold transition-colors">
+                          <span className="text-[11px] font-black text-white leading-none group-hover:text-epic-gold transition-colors">
                             {block.grupoNombre}
                           </span>
+                          
+                          {/* Desglose de disciplinas */}
+                          <div className="flex flex-col gap-0.5 mt-1 overflow-hidden">
+                            {block.subBlocks.map((sub: any) => {
+                              const endH = Math.floor(sub.end / 60);
+                              const endM = sub.end % 60;
+                              const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+                              return (
+                                <div key={sub.originalId} className="text-[9px] text-white/80 leading-tight truncate">
+                                  <span className="font-bold">{sub.disciplinaNombre}</span> {sub.horaInicio}-{endTime}
+                                </div>
+                              );
+                            })}
+                          </div>
                           
                           <div className="mt-auto flex flex-col gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
                             <div className="flex items-center gap-1">

@@ -434,3 +434,21 @@ export async function actualizarHorarioClase(
     return { ok: false, error: 'No se pudo actualizar el horario.' };
   }
 }
+
+// ─── 16. Asignar salón a todos los grupos de una categoría ────────────────
+
+export async function asignarSalonCategoria(
+  categoria: string,
+  salonId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getServerSession(authOptions);
+  try {
+    await withRLS(session, (tx) => svc.asignarSalonCategoria(tx, categoria, salonId));
+    revalidatePath('/admin/configuracion');
+    revalidatePath('/admin/grupos');
+    return { ok: true };
+  } catch (err) {
+    console.error('[asignarSalonCategoria]', err);
+    return { ok: false, error: 'No se pudo asignar el salón a la categoría.' };
+  }
+}

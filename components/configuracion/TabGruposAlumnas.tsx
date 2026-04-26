@@ -7,7 +7,7 @@ import { Pencil, Plus, Sun, Users, ChevronRight } from 'lucide-react';
 import AlumnaDetailModal from '@/components/configuracion/modals/AlumnaDetailModal';
 import GrupoSelect from '@/components/ui/GrupoSelect';
 import type { GrupoConfigData, AlumnaConfigData, CursoEspecialData, DisciplinaConfigData, ProfesorData, ReasignacionResult } from '@/types/configuracion';
-import { toggleInvitacionCompetencia, reasignarAlumna, setAlumnaDisciplinasEnGrupo, actualizarPadre } from '@/lib/actions/config-grupos';
+import { toggleInvitacionCompetencia, reasignarAlumna, setAlumnaDisciplinasEnGrupo, actualizarPadre, asignarSalonCategoria } from '@/lib/actions/config-grupos';
 import { FMT_MXN } from '@/lib/format';
 import CapacityBar from '@/components/ui/CapacityBar';
 import TierBadge from '@/components/ui/TierBadge';
@@ -177,6 +177,26 @@ export default function TabGruposAlumnas({ grupos, alumnas, cursosEspeciales, di
                 <span className="font-inter text-[11px] dark:text-white/30 text-gray-400 shrink-0">
                   {items.length} grupo{items.length !== 1 ? 's' : ''}
                 </span>
+                {cat !== 'COMPETICION' && cat !== 'Eventos' && (
+                  <select
+                    className="ml-2 bg-transparent text-epic-gold border border-epic-gold/20 rounded text-xs px-2 py-0.5 outline-none focus:ring-1 focus:ring-epic-gold/50"
+                    value={items[0]?.salonId ?? ''}
+                    onChange={async (e) => {
+                      const id = e.target.value;
+                      const res = await asignarSalonCategoria(cat, id);
+                      if (res.ok) {
+                        toast.success(`Salón actualizado para la categoría ${cat}`);
+                      } else {
+                        toast.error(res.error || 'Error al actualizar salón');
+                      }
+                    }}
+                  >
+                    <option value="" className="text-gray-900">Sin Salón</option>
+                    {salones.map(s => (
+                      <option key={s.id} value={s.id} className="text-gray-900">{s.nombre}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {items.map((g) => (

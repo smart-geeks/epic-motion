@@ -293,3 +293,14 @@ export async function getTarifaReferencia(
   }
   return null;
 }
+
+export async function asignarSalonCategoria(
+  tx: PrismaTransactionClient,
+  categoria: string,
+  salonId: string,
+): Promise<void> {
+  await tx.grupo.updateMany({
+    where: { categoria: categoria as CategoriaGrupo },
+    data: { salonId }
+  });
+}

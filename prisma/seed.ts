@@ -132,23 +132,45 @@ async function main() {
   // ─────────────────────────────────────────────
 
   const salonPrincipal = await findOrCreate(
-    () => prisma.salon.findFirst({ where: { nombre: "Salón Principal" } }),
+    () => prisma.salon.findFirst({ where: { nombre: "SALÓN 1" } }),
     () => prisma.salon.create({
       data: {
-        nombre:      "Salón Principal",
-        descripcion: "Salón principal con espejo y barra de ballet",
+        nombre:      "SALÓN 1",
+        descripcion: "Salón Principal 1",
         capacidad:   20,
       },
     })
   );
 
   const salonB = await findOrCreate(
-    () => prisma.salon.findFirst({ where: { nombre: "Salón B" } }),
+    () => prisma.salon.findFirst({ where: { nombre: "SALÓN 2" } }),
     () => prisma.salon.create({
       data: {
-        nombre:      "Salón B",
-        descripcion: "Salón secundario para grupos pequeños",
-        capacidad:   15,
+        nombre:      "SALÓN 2",
+        descripcion: "Salón 2",
+        capacidad:   20,
+      },
+    })
+  );
+
+  const salon3 = await findOrCreate(
+    () => prisma.salon.findFirst({ where: { nombre: "SALÓN 3" } }),
+    () => prisma.salon.create({
+      data: {
+        nombre:      "SALÓN 3",
+        descripcion: "Salón 3",
+        capacidad:   20,
+      },
+    })
+  );
+
+  const salon4 = await findOrCreate(
+    () => prisma.salon.findFirst({ where: { nombre: "SALÓN 4" } }),
+    () => prisma.salon.create({
+      data: {
+        nombre:      "SALÓN 4",
+        descripcion: "Salón 4",
+        capacidad:   20,
       },
     })
   );
